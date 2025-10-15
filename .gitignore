@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+nohup.out
+state_oraculo_bot.pickle
+.env
