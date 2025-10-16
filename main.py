@@ -1,30 +1,33 @@
 import os, logging, random
-from datetime import datetime, time
+from pathlib import Path
+from datetime import time, datetime
 from zoneinfo import ZoneInfo
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler,
     ContextTypes, filters, PicklePersistence
 )
 
-# =============== CONFIG ===============
+# ================== LOG & TIMEZONE ==================
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 log = logging.getLogger("oraculo-bonus-bot")
-
 TZ = ZoneInfo("America/Sao_Paulo")
+BASE_DIR = Path(__file__).resolve().parent
 
+# ================== ENV ==================
 BOT_TOKEN  = os.getenv("BOT_TOKEN")
-PDF_URL    = os.getenv("PDF_URL", "./guia_oraculo_black.pdf")
-LINK_CAD   = os.getenv("LINK_CAD", "https://bit.ly/COMECENOORACULOBLACK")
-LINK_VIDEO = os.getenv("LINK_VIDEO", "https://t.me/oraculo_black_central/5")
+PDF_URL    = os.getenv("PDF_URL", "guia_oraculo_black.pdf").strip()
+LINK_CAD   = os.getenv("LINK_CAD", "https://bit.ly/COMECENOORACULOBLACK").strip()
+LINK_VIDEO = os.getenv("LINK_VIDEO", "https://t.me/oraculo_black_central/5").strip()
+GRUPO_URL  = os.getenv("GRUPO_URL", "https://t.me/oraculoblackfree").strip()
 FILE_ID    = os.getenv("FILE_ID", "").strip()
 ADMIN_ID   = os.getenv("ADMIN_ID", "").strip()
-GRUPO_URL  = os.getenv("GRUPO_URL", "https://t.me/oraculoblackfree")
 
 if not BOT_TOKEN:
     raise RuntimeError("Defina BOT_TOKEN no ambiente (.env/variables).")
 
-# =============== 30 MENSAGENS POR POOL ===============
+# ================== MENSAGENS (30 por pool) ==================
 POOLS = {
     "pre10": [
         "Pré {hora}h: aquecendo — entra pra pegar do começo! {link}!",
@@ -347,33 +350,30 @@ POOLS = {
         "Orgulho de te ter no time. Boa noite!"
     ]
 }
-# =============== EMOJIS MISTURADOS ===============
+
+# ================== EMOJIS (mix automático) ==================
 EMOJIS_DEFAULT = ["🔥","💥","🚀","💰","⚡️","✅","📈","🎯","🟢"]
 EMOJIS_BOANOITE = ["🌙","✨","😴","✅"]
 
 def _has_trailing_emoji(s: str) -> bool:
-    # verifica se termina com algum dos emojis usados
     tail = "".join(EMOJIS_DEFAULT + EMOJIS_BOANOITE)
     return any(s.rstrip().endswith(e) for e in tail)
 
 def add_emoji_variation(text: str, pool: str) -> str:
-    # ~60% das vezes adiciona 1 emoji; ~20% dessas ainda adiciona um 2º
-    import random
     if _has_trailing_emoji(text):
         return text
-    if random.random() < 0.60:
+    if random.random() < 0.60:  # 60% das mensagens ganham emoji
         base = EMOJIS_BOANOITE if pool == "boanoite" else EMOJIS_DEFAULT
         one = random.choice(base)
-        out = text.rstrip()
-        out = f"{out} {one}"
-        if random.random() < 0.20:  # 20% chance de 2 emojis
+        out = f"{text.rstrip()} {one}"
+        if random.random() < 0.20:  # 20% ganham 2º emoji
             two = random.choice(base)
             if two != one:
                 out = f"{out}{two}"
         return out
     return text
 
-# =============== BOTÕES (CTA alternando) ===============
+# ================== BOTÕES ==================
 def teclado_variante():
     v = random.random()
     if v < 0.33:
@@ -394,28 +394,24 @@ def botoes_menu():
         [InlineKeyboardButton("ABRIR ✅", url=GRUPO_URL)]
     ])
 
-# =============== ROTINA DE ENVIO (rotação por usuário) ===============
+# ================== ROTINA (rotação por usuário) ==================
 def _next_index(context: ContextTypes.DEFAULT_TYPE, chat_id: int, pool: str) -> int:
     state = context.application.user_data.setdefault(chat_id, {})
     rot = state.setdefault("rot", {})   # rot[pool] = idx
-    idx = rot.get(pool, -1) + 1
-    size = len(POOLS.get(pool, [])) or 1
-    idx = idx % size
+    idx = (rot.get(pool, -1) + 1) % max(1, len(POOLS.get(pool, [])))
     rot[pool] = idx
     return idx
 
 async def send_from_pool(pool: str, context: ContextTypes.DEFAULT_TYPE, chat_id: int, hora: str | None = None):
     msgs = POOLS.get(pool, [])
-    if not msgs:
-        return
+    if not msgs: return
     idx = _next_index(context, chat_id, pool)
     nome = context.application.user_data.get(chat_id, {}).get("nome", "")
-    txt = msgs[idx].replace("{hora}", hora or "").replace("{link}", LINK_CAD).replace("{nome}", nome or "")
-    # adiciona emojis de forma variada, dependendo do pool
+    txt = msgs[idx].replace("{hora}", hora or "").replace("{link}", GRUPO_URL).replace("{nome}", nome or "")
     txt = add_emoji_variation(txt, pool)
     await context.bot.send_message(chat_id, txt, reply_markup=teclado_variante())
 
-# =============== PDF (com FILE_ID para instantâneo) ===============
+# ================== PDF (local/URL/file_id) ==================
 async def send_bonus_pdf(context, chat_id):
     global FILE_ID
     caption = "📄 Guia Oráculo Black — o seu bônus de início!"
@@ -423,60 +419,62 @@ async def send_bonus_pdf(context, chat_id):
         if FILE_ID:
             await context.bot.send_document(chat_id, FILE_ID, caption=caption)
             return
-        if PDF_URL.startswith("http"):
+
+        if PDF_URL.lower().startswith("http"):
             msg = await context.bot.send_document(chat_id, PDF_URL, caption=caption)
         else:
-            with open(PDF_URL, "rb") as f:
-                msg = await context.bot.send_document(chat_id, InputFile(f, filename=os.path.basename(PDF_URL)), caption=caption)
+            pdf_path = (BASE_DIR / PDF_URL).resolve()
+            log.info(f"[PDF] path={pdf_path} exists={pdf_path.exists()} cwd={Path.cwd()} base={BASE_DIR}")
+            if not pdf_path.exists():
+                alt = Path("/app") / PDF_URL
+                log.info(f"[PDF] alt={alt} exists={alt.exists()}")
+                pdf_path = alt if alt.exists() else pdf_path
+            with pdf_path.open("rb") as f:
+                msg = await context.bot.send_document(
+                    chat_id, InputFile(f, filename=pdf_path.name), caption=caption
+                )
+
         fid = msg.document.file_id if msg and msg.document else ""
         if fid:
             FILE_ID = fid
-            log.info(f"PDF file_id capturado: {FILE_ID}")
+            log.info(f"[PDF] file_id capturado: {FILE_ID}")
             if ADMIN_ID:
                 try:
                     await context.bot.send_message(int(ADMIN_ID), f"PDF file_id:\n`{FILE_ID}`", parse_mode="Markdown")
                 except Exception:
                     pass
     except Exception as e:
-        log.error(f"Erro ao enviar PDF: {e}")
+        log.exception(f"[PDF] erro: {e}")
         await context.bot.send_message(chat_id, "⚠️ Não consegui enviar o PDF agora. Tenta /start de novo depois.")
 
-# =============== AGENDAMENTO ===============
+# ================== JOBS (agendas) ==================
 def _job(jq, name, at: time, chat_id, cb):
-    for j in jq.get_jobs_by_name(name):
-        j.schedule_removal()
+    for j in jq.get_jobs_by_name(name): j.schedule_removal()
     job = jq.run_daily(cb, at, chat_id=chat_id, name=name)
-    try:
-        log.info(f"Agendado {name} -> {job.next_t.astimezone(TZ)}")
-    except Exception:
-        pass
+    try: log.info(f"Agendado {name} -> {job.next_t.astimezone(TZ)}")
+    except: pass
 
 async def schedule_all_user_jobs(job_queue_or_context, chat_id: int):
     jq = getattr(job_queue_or_context, "job_queue", None) or job_queue_or_context
-    # Pré: 09:30 / 14:30 / 19:30
     _job(jq, f"pre_10_{chat_id}",   time(9,30,tzinfo=TZ),  chat_id, pre10_cb)
-    _job(jq, f"pre_15_{chat_id}",   time(14,30,tzinfo=TZ), chat_id, pre15_cb)
-    _job(jq, f"pre_20_{chat_id}",   time(19,30,tzinfo=TZ), chat_id, pre20_cb)
-    # Pós: 10:15 / 15:15 / 20:15
     _job(jq, f"pos_10_{chat_id}",   time(10,15,tzinfo=TZ), chat_id, pos10_cb)
-    _job(jq, f"pos_15_{chat_id}",   time(15,15,tzinfo=TZ), chat_id, pos15_cb)
-    _job(jq, f"pos_20_{chat_id}",   time(20,15,tzinfo=TZ), chat_id, pos20_cb)
-    # Extras: 11:30 / 16:30 / 18:30
     _job(jq, f"extra_1130_{chat_id}", time(11,30,tzinfo=TZ), chat_id, extra1130_cb)
+    _job(jq, f"pre_15_{chat_id}",   time(14,30,tzinfo=TZ), chat_id, pre15_cb)
+    _job(jq, f"pos_15_{chat_id}",   time(15,15,tzinfo=TZ), chat_id, pos15_cb)
     _job(jq, f"extra_1630_{chat_id}", time(16,30,tzinfo=TZ), chat_id, extra1630_cb)
     _job(jq, f"extra_1830_{chat_id}", time(18,30,tzinfo=TZ), chat_id, extra1830_cb)
-    # Boa noite: 22:00
-    _job(jq, f"boanoite_{chat_id}",  time(22,0,tzinfo=TZ),  chat_id, boanoite_cb)
+    _job(jq, f"pre_20_{chat_id}",   time(19,30,tzinfo=TZ), chat_id, pre20_cb)
+    _job(jq, f"pos_20_{chat_id}",   time(20,15,tzinfo=TZ), chat_id, pos20_cb)
+    _job(jq, f"boanoite_{chat_id}", time(22,0,tzinfo=TZ),  chat_id, boanoite_cb)
 
 async def restore_all_jobs(app):
     total = 0
     for chat_id, udata in app.user_data.items():
         if udata.get("onboarded"):
-            await schedule_all_user_jobs(app.job_queue, chat_id)
-            total += 1
+            await schedule_all_user_jobs(app.job_queue, chat_id); total += 1
     log.info(f"Restore: agendamentos reativados para {total} usuário(s).")
 
-# callbacks
+# Callbacks de jobs
 async def pre10_cb(c):     await send_from_pool("pre10", c, c.job.chat_id, "10")
 async def pos10_cb(c):     await send_from_pool("pos10", c, c.job.chat_id, "10")
 async def pre15_cb(c):     await send_from_pool("pre15", c, c.job.chat_id, "15")
@@ -488,12 +486,11 @@ async def extra1630_cb(c): await send_from_pool("extra1630", c, c.job.chat_id)
 async def extra1830_cb(c): await send_from_pool("extra1830", c, c.job.chat_id)
 async def boanoite_cb(c):  await send_from_pool("boanoite", c, c.job.chat_id)
 
-# =============== HANDLERS ===============
+# ================== HANDLERS ==================
 async def cmd_start(u: Update, c: ContextTypes.DEFAULT_TYPE):
     chat_id = u.effective_chat.id
     if c.user_data.get("onboarded"):
-        await u.message.reply_text("Menu rápido 👇", reply_markup=botoes_menu())
-        return
+        await u.message.reply_text("Menu rápido 👇", reply_markup=botoes_menu()); return
     await u.message.reply_text("Opa, seja bem-vindo 😎 Me fala seu nome e já libero teu bônus!")
     c.user_data["awaiting_name"] = True
 
@@ -501,8 +498,7 @@ async def cmd_stop(u: Update, c: ContextTypes.DEFAULT_TYPE):
     chat_id = u.effective_chat.id
     c.user_data.clear()
     for j in c.job_queue.jobs():
-        if j.chat_id == chat_id:
-            j.schedule_removal()
+        if j.chat_id == chat_id: j.schedule_removal()
     await u.message.reply_text("Agendamentos limpos. Envie /start para recomeçar.")
 
 async def on_text(u: Update, c: ContextTypes.DEFAULT_TYPE):
@@ -534,6 +530,7 @@ async def cb_sessoes(u: Update, c: ContextTypes.DEFAULT_TYPE):
            "• 22:00 — Boa noite")
     await u.callback_query.message.reply_text(txt)
 
+# -------- testes rápidos
 async def cmd_teste(u: Update, c: ContextTypes.DEFAULT_TYPE):
     chat_id = u.effective_chat.id
     await send_from_pool("pre10", c, chat_id, "10")
@@ -543,19 +540,32 @@ async def cmd_teste(u: Update, c: ContextTypes.DEFAULT_TYPE):
     await u.message.reply_text("✅ Testes enviados.")
 
 async def cmd_agora(u: Update, c: ContextTypes.DEFAULT_TYPE):
-    now = datetime.now(TZ).time()
-    chat_id = u.effective_chat.id
-    if now < time(10,0,tzinfo=TZ):
-        await send_from_pool("pre10", c, chat_id, "10")
-    elif now < time(15,0,tzinfo=TZ):
-        await send_from_pool("pre15", c, chat_id, "15")
-    elif now < time(20,0,tzinfo=TZ):
-        await send_from_pool("pre20", c, chat_id, "20")
-    else:
-        await send_from_pool("boanoite", c, chat_id)
+    now = datetime.now(TZ).time(); chat_id = u.effective_chat.id
+    if   now < time(10,0,tzinfo=TZ):  await send_from_pool("pre10", c, chat_id, "10")
+    elif now < time(15,0,tzinfo=TZ):  await send_from_pool("pre15", c, chat_id, "15")
+    elif now < time(20,0,tzinfo=TZ):  await send_from_pool("pre20", c, chat_id, "20")
+    else:                              await send_from_pool("boanoite", c, chat_id)
     await u.message.reply_text("✅ Mensagem ‘agora’ enviada.")
 
-# =============== MAIN ===============
+# -------- comandos pool específicos (inclui /poolpos10)
+async def cmd_pool_pre10(u,c):      await send_from_pool("pre10", c, u.effective_chat.id, "10")
+async def cmd_pool_pos10(u,c):      await send_from_pool("pos10", c, u.effective_chat.id, "10")
+async def cmd_pool_pre15(u,c):      await send_from_pool("pre15", c, u.effective_chat.id, "15")
+async def cmd_pool_pos15(u,c):      await send_from_pool("pos15", c, u.effective_chat.id, "15")
+async def cmd_pool_pre20(u,c):      await send_from_pool("pre20", c, u.effective_chat.id, "20")
+async def cmd_pool_pos20(u,c):      await send_from_pool("pos20", c, u.effective_chat.id, "20")
+async def cmd_pool_extra1130(u,c):  await send_from_pool("extra1130", c, u.effective_chat.id)
+async def cmd_pool_extra1630(u,c):  await send_from_pool("extra1630", c, u.effective_chat.id)
+async def cmd_pool_extra1830(u,c):  await send_from_pool("extra1830", c, u.effective_chat.id)
+async def cmd_pool_boanoite(u,c):   await send_from_pool("boanoite", c, u.effective_chat.id)
+
+# -------- PDF debug
+async def cmd_pdf(u,c):   await send_bonus_pdf(c, u.effective_chat.id); await u.message.reply_text("🧪 Tentativa de envio do PDF feita.")
+async def cmd_where(u,c):
+    pdf_path = (BASE_DIR / PDF_URL).resolve()
+    await u.message.reply_text(f"🔎 PDF_URL={PDF_URL}\nBASE_DIR={BASE_DIR}\nRESOLVIDO={pdf_path}\nEXISTS={pdf_path.exists()}")
+
+# ================== MAIN ==================
 def main():
     persistence = PicklePersistence(filepath="state_oraculo_bot.pickle")
     app = ApplicationBuilder().token(BOT_TOKEN).persistence(persistence).build()
@@ -569,6 +579,22 @@ def main():
     app.add_handler(CommandHandler("agora", cmd_agora))
     app.add_handler(CallbackQueryHandler(cb_sessoes, pattern="^sessoes$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+
+    # pools individuais (inclui o que você digitou)
+    app.add_handler(CommandHandler("poolpre10",  cmd_pool_pre10))
+    app.add_handler(CommandHandler("poolpos10",  cmd_pool_pos10))   # << /poolpos10
+    app.add_handler(CommandHandler("poolpre15",  cmd_pool_pre15))
+    app.add_handler(CommandHandler("poolpos15",  cmd_pool_pos15))
+    app.add_handler(CommandHandler("poolpre20",  cmd_pool_pre20))
+    app.add_handler(CommandHandler("poolpos20",  cmd_pool_pos20))
+    app.add_handler(CommandHandler("poolextra1130", cmd_pool_extra1130))
+    app.add_handler(CommandHandler("poolextra1630", cmd_pool_extra1630))
+    app.add_handler(CommandHandler("poolextra1830", cmd_pool_extra1830))
+    app.add_handler(CommandHandler("poolboanoite", cmd_pool_boanoite))
+
+    # pdf helpers
+    app.add_handler(CommandHandler("pdf",   cmd_pdf))
+    app.add_handler(CommandHandler("where", cmd_where))
 
     log.info("Bot iniciado. Aguardando mensagens…")
     app.run_polling()
