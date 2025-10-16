@@ -29,294 +29,301 @@ if not BOT_TOKEN:
 
 # ================== MENSAGENS (30 por pool) ==================
 POOLS = {
+    # PRÉ
     "pre10": [
-        "Pré {hora}h: aquecendo — entra pra pegar do começo! {link}!",
+        "Aquecendo — entra pra pegar do começo às {hora}h! {link}",
         "Falta pouco pra {hora}h — posiciona e cola com a gente! {link}",
-        "Reta final antes das {hora}h — não perde a entrada boa! {link}!",
-        "Pré {hora}h: tua chance de começar certo hoje! {link}",
+        "Reta final — não perde a abertura das {hora}h! {link}!",
+        "Tua chance de começar certo hoje às {hora}h! {link}",
         "Contagem regressiva pra {hora}h — aproveita o fluxo! {link}!",
-        "Vai começar às {hora}h — confirma presença no grupo! {link}",
+        "Vai começar às {hora}h — confirma presença! {link}",
         "Aquecendo pra {hora}h — resultado vem de quem aparece! {link}!",
-        "Pré {hora}h: decisão agora. Tá dentro? {link}!",
+        "Decisão agora: {hora}h é contigo! {link}!",
         "Preparação é tudo: {hora}h chegando — vem! {link}",
-        "Ao vivo {hora}h: sem enrolação, direto ao ponto! {link}",
+        "Sem enrolação, direto ao ponto às {hora}h! {link}",
         "As melhores janelas nascem no pré {hora}h — garante teu lugar! {link}!",
-        "Últimos ajustes pro {hora}h — foco total! {link}",
-        "Se prepara: {hora}h é onde a turma vira o jogo! {link}!",
-        "Pré {hora}h: constância > ansiedade. Vem simples e direto! {link}",
+        "Últimos ajustes pra {hora}h — foco total! {link}",
+        "O jogo vira às {hora}h — partiu! {link}!",
+        "Constância > ansiedade: alinha pro {hora}h! {link}",
         "Quem chega antes, colhe melhor — {hora}h! {link}!",
         "Chama no compromisso: {hora}h é agora! {link}",
-        "Pré {hora}h: entra e acompanha o passo a passo! {link}!",
-        "Reta final — {hora}h vai abrir as portas! {link}",
+        "Acompanha o passo a passo no {hora}h! {link}!",
+        "Reta final — {hora}h abrindo as portas! {link}",
         "Vem viver o ao vivo das {hora}h — execução simples! {link}!",
-        "Pré {hora}h: presença manda! {link}!",
+        "Presença manda — {hora}h é contigo! {link}!",
         "Não deixa pra depois: {hora}h é teu momento! {link}!",
-        "Aquecimento {hora}h: organiza e vem! {link}",
-        "Pré {hora}h: hoje você aparece pra você mesmo! {link}!",
+        "Organiza e vem — {hora}h chegando! {link}",
+        "Hoje você aparece pra você mesmo — {hora}h! {link}!",
         "O jogo começa no pré {hora}h — partiu! {link}!",
-        "Hora de alinhar mentalidade pro {hora}h — vem! {link}",
-        "Pré {hora}h: minuto final pra entrar no grupo! {link}!",
+        "Alinha a mente pra {hora}h — vem! {link}",
+        "Minuto final pra entrar no grupo — {hora}h! {link}!",
         "Tá pronto? {hora}h chegando — bora! {link}!",
-        "Pré {hora}h: foco no simples e no claro! {link}!",
+        "Foco no simples no {hora}h — vem! {link}!",
         "Quem tá dentro chega agora — {hora}h! {link}!",
-        "Pré {hora}h: presença = resultado! {link}!"
-    ],
-    "pos10": [
-        "Pós {hora}h: a sessão tá pegando fogo — ainda dá tempo de entrar! {link}!",
-        "Já começou {hora}h e o ritmo tá forte — cola agora! {link}",
-        "Depois das {hora}h o jogo virou — aproveita o momento! {link}!",
-        "{hora}h rolando: quem entrou já tá na frente — chega junto! {link}",
-        "A sessão {hora}h tá fluindo — pega carona no movimento! {link}!",
-        "Perdeu o começo? Ainda dá tempo no pós {hora}h! {link}",
-        "{hora}h ao vivo: foco total e execução simples! {link}!",
-        "Seguimos no pós {hora}h — consistência vence! {link}",
-        "A galera já tá dentro {hora}h — vem ver com os próprios olhos! {link}!",
-        "Pós {hora}h: sem desculpa, só ação! {link}!",
-        "Janela aberta no pós {hora}h — aproveita! {link}",
-        "Quem entrou no {hora}h sabe: é executar o plano! {link}!",
-        "Pós {hora}h: oportunidade real pra quem decide agora! {link}",
-        "Ritmo bom no {hora}h — toma a frente! {link}!",
-        "Ao vivo após {hora}h — vem sentir o fluxo! {link}",
-        "Quem tá dentro já avançou — vem pro pós {hora}h! {link}!",
-        "Pós {hora}h: sem drama, só play! {link}",
-        "Ainda dá tempo no pós {hora}h — chega mais! {link}!",
-        "Aproveita a janela do {hora}h — chama no movimento! {link}",
-        "Pós {hora}h: execução limpa, resultado aparece! {link}!",
-        "Clima perfeito no {hora}h — entra agora! {link}",
-        "Pós {hora}h: consistência e decisão — bora! {link}!",
-        "Na prática após {hora}h — sem teoria, vamo! {link}",
-        "Quem decide agora, participa — pós {hora}h ON! {link}!",
-        "Oportunidade viva no {hora}h — cola! {link}",
-        "Ainda tá rolando {hora}h — aproveita o embalo! {link}!",
-        "Pós {hora}h: presença que entrega! {link}!",
-        "Vem ver com calma e clareza no pós {hora}h! {link}",
-        "Joga simples: entra no {hora}h e acompanha! {link}",
-        "Pós {hora}h: aqui é execução — partiu! {link}!"
+        "Presença = resultado — {hora}h! {link}!"
     ],
     "pre15": [
-        "Pré {hora}h: hora de alinhar e vir junto com a equipe! {link}",
+        "Hora de alinhar e vir junto às {hora}h! {link}",
         "{hora}h chegando — não deixa pra depois! {link}!",
-        "Quem chega antes, colhe melhor — pré {hora}h! {link}",
-        "Aquecendo pra {hora}h — entra e se posiciona! {link}!",
+        "Quem chega antes colhe melhor — {hora}h! {link}",
+        "Aquecendo pra {hora}h — posiciona já! {link}!",
         "Vem pra {hora}h com a gente — simples e eficiente! {link}",
-        "Pré {hora}h: prepara pra executar sem ansiedade! {link}!",
+        "Prepara pra executar sem ansiedade às {hora}h! {link}!",
         "Reta final pra {hora}h — foco no playbook! {link}",
-        "Tua meta do dia passa por {hora}h — aparece! {link}!",
-        "{hora}h é teu compromisso de hoje — confirma no grupo! {link}",
-        "Pré {hora}h: vamo de passo a passo claro! {link}!",
+        "Tua meta passa por {hora}h — aparece! {link}!",
+        "{hora}h é teu compromisso — confirma no grupo! {link}",
+        "Passo a passo claro às {hora}h! {link}!",
         "Aquecimento {hora}h — presença conta! {link}",
-        "Pré {hora}h: disciplina e execução — vem! {link}!",
-        "Momento de virar a chave às {hora}h — partiu! {link}",
-        "Antes das {hora}h é a tua janela de ouro — entra! {link}!",
-        "Pré {hora}h: posiciona e joga simples! {link}!",
+        "Disciplina e execução no {hora}h — vem! {link}!",
+        "Virar a chave às {hora}h — partiu! {link}",
+        "Antes das {hora}h é a tua janela — entra! {link}!",
+        "Posiciona e joga simples no {hora}h! {link}!",
         "Sem mistério: {hora}h é foco total! {link}",
-        "Pré {hora}h: quem aparece, evolui — vem! {link}!",
+        "Quem aparece, evolui — {hora}h! {link}!",
         "Últimos minutos pro {hora}h — cola no grupo! {link}",
-        "Pré {hora}h: o plano tá pronto — só executar! {link}!",
-        "Chama pro {hora}h e garante presença! {link}",
-        "Pré {hora}h: bora dar o primeiro passo! {link}!",
-        "Aquecendo com calma e clareza {hora}h — vem! {link}",
-        "Quem decide antes, domina no {hora}h — cola! {link}!",
-        "Pré {hora}h: sem desculpa, só ação! {link}!",
-        "Reta final {hora}h — entra pra não perder! {link}",
-        "Pré {hora}h: bora pra prática com a equipe! {link}!",
+        "Plano pronto pro {hora}h — só executar! {link}!",
+        "Confirma {hora}h — presença valendo! {link}",
+        "Primeiro passo às {hora}h — vem! {link}!",
+        "Calma e clareza no {hora}h — cola! {link}",
+        "Decide antes, domina no {hora}h — vem! {link}!",
+        "Sem desculpa: {hora}h é ação! {link}!",
+        "Não perde {hora}h — entra agora! {link}",
+        "Prática com a equipe no {hora}h — vem! {link}",
         "Preparado? {hora}h chegando — presença! {link}",
-        "Pré {hora}h: resultado acompanha quem tá no jogo! {link}!",
-        "Atenção total pro {hora}h — confirma presença! {link}",
-        "Pré {hora}h: vem que hoje entrega! {link}!"
-    ],
-    "pos15": [
-        "Pós {hora}h: movimento firme — entra no ritmo certo! {link}",
-        "A sessão {hora}h já tá rodando — bora pra prática! {link}!",
-        "Quem entrou no {hora}h sabe: é executar o plano! {link}",
-        "Depois das {hora}h: tem oportunidade pingando! {link}!",
-        "Pós {hora}h: aproveita a janela, sem hesitar! {link}",
-        "{hora}h tá ON — confirma presença e vem! {link}!",
-        "Seguimos no {hora}h — consistência >>> ansiedade! {link}",
-        "Ainda dá tempo no pós {hora}h — chega mais! {link}!",
-        "Pós {hora}h: chance real pra quem decide agora! {link}",
-        "Ritmo bom no {hora}h — toma a frente! {link}!",
-        "Depois do {hora}h o fluxo continua — cola! {link}",
-        "Pós {hora}h: clareza na execução — vem! {link}!",
-        "Quem tá dentro tá vendo — entra no {hora}h! {link}",
-        "Janela aberta no pós {hora}h — aproveita! {link}!",
-        "Pós {hora}h: decisão simples, play direto! {link}",
-        "Ainda rolando {hora}h — chama no grupo! {link}!",
-        "Pós {hora}h: presença que vira resultado! {link}",
-        "Na prática após {hora}h — bora! {link}!",
-        "Pós {hora}h: não fica de fora — aparece! {link}!",
-        "Fluxo bom no {hora}h — entra e acompanha! {link}!",
-        "Pós {hora}h: execução limpa, sem drama! {link}",
-        "Acontecendo agora no {hora}h — vem! {link}!",
-        "Pós {hora}h: bora seguir o plano! {link}!",
-        "Tudo ao vivo no {hora}h — confere! {link}",
-        "Pós {hora}h: constância na veia! {link}!",
-        "{hora}h no ar — passa no grupo! {link}",
-        "Pós {hora}h: chegou a tua hora — entra! {link}!",
-        "Aproveita a energia do {hora}h e vem! {link}!",
-        "Pós {hora}h: quem aparece, avança! {link}!",
-        "Ainda dá tempo! Pós {hora}h tá rolando! {link}!"
+        "Resultado acompanha quem tá no jogo — {hora}h! {link}!",
+        "Atenção total pro {hora}h — confirma! {link}",
+        "Hoje entrega — {hora}h! {link}!"
     ],
     "pre20": [
-        "Pré {hora}h: última virada do dia — cola pra fechar bonito! {link}",
-        "{hora}h chegando: final de dia é onde muita gente vira a chave! {link}!",
+        "Última virada do dia — {hora}h pra fechar bonito! {link}",
+        "{hora}h chegando: final de dia vira a chave! {link}!",
         "Aquecendo pra {hora}h — presença é meio caminho! {link}",
-        "Pré {hora}h: nada de perder a última do dia! {link}!",
-        "Reta final do dia {hora}h — disciplina até o fim! {link}",
+        "Nada de perder a última do dia — {hora}h! {link}!",
+        "Reta final {hora}h — disciplina até o fim! {link}",
         "Quem vem pra {hora}h fecha o dia no controle! {link}!",
-        "{hora}h quase aí — confirma no grupo e se posiciona! {link}",
-        "Pré {hora}h: reta final com decisão! {link}!",
-        "Fecha o dia no alto: vem pra {hora}h! {link}",
-        "Pré {hora}h: preparação simples, execução limpa! {link}!",
-        "Virada de chave no {hora}h — cola pra sentir! {link}",
-        "Pré {hora}h: chama na presença e aparece! {link}!",
-        "Última do dia — {hora}h vai te colocar à frente! {link}",
-        "Pré {hora}h: compromisso contigo mesmo — bora! {link}!",
+        "{hora}h quase aí — posiciona! {link}",
+        "Reta final com decisão — {hora}h! {link}!",
+        "Fecha o dia no alto: {hora}h! {link}",
+        "Preparação simples, execução limpa — {hora}h! {link}!",
+        "Virada de chave no {hora}h — sente o ritmo! {link}",
+        "Chama na presença — {hora}h! {link}!",
+        "Última do dia — {hora}h te coloca à frente! {link}",
+        "Compromisso contigo — {hora}h! {link}!",
         "Respira, organiza e vem pro {hora}h! {link}",
-        "Pré {hora}h: foco no necessário — sem distração! {link}!",
-        "Quem fecha o dia no {hora}h colhe mais amanhã! {link}",
-        "Pré {hora}h: entra agora, decide agora! {link}!",
-        "Reta final: {hora}h — entrega total! {link}",
-        "Pré {hora}h: sem desculpa, só ação! {link}!",
-        "Aquecimento final {hora}h — vem junto! {link}",
-        "Pré {hora}h: presença manda — partiu! {link}!",
-        "Últimos ajustes pro {hora}h — bora! {link}",
-        "Pré {hora}h: bota o plano em prática! {link}!",
-        "Vem sentir o ritmo do {hora}h — abre o grupo! {link}",
-        "Pré {hora}h: etapa decisiva do dia — entra! {link}!",
-        "Chama no grupo e confirma {hora}h! {link}",
-        "Pré {hora}h: teu movimento de hoje começa aqui! {link}!",
-        "Quem quer fechar o dia forte vem no {hora}h! {link}",
-        "Pré {hora}h: presença agora, resultado depois! {link}!"
+        "Foco no necessário — {hora}h! {link}!",
+        "Quem fecha no {hora}h colhe amanhã! {link}",
+        "Decide agora pro {hora}h! {link}!",
+        "Entrega total na {hora}h! {link}",
+        "Sem desculpa: {hora}h é ação! {link}!",
+        "Aquecimento final {hora}h — vem! {link}",
+        "Presença manda — {hora}h! {link}!",
+        "Últimos ajustes pra {hora}h — bora! {link}",
+        "Bota o plano em prática — {hora}h! {link}!",
+        "Sente o ritmo do {hora}h — abre o grupo! {link}",
+        "Etapa decisiva do dia — {hora}h! {link}!",
+        "Confirma {hora}h! {link}",
+        "Teu movimento de hoje começa aqui — {hora}h! {link}!",
+        "Quer fechar forte? vem no {hora}h! {link}",
+        "Presença agora, resultado depois — {hora}h! {link}!"
+    ],
+
+    # PÓS
+    "pos10": [
+        "Sessão {hora}h tá pegando fogo — ainda dá tempo! {link}",
+        "Já começou {hora}h e o ritmo tá forte — cola agora! {link}",
+        "Depois das {hora}h o jogo virou — aproveita! {link}!",
+        "{hora}h rolando: quem entrou já tá na frente — vem! {link}",
+        "Fluxo bom no {hora}h — pega carona! {link}!",
+        "Perdeu o começo? pós {hora}h ainda dá! {link}",
+        "{hora}h ON: foco total e execução simples! {link}!",
+        "Seguimos no pós {hora}h — consistência vence! {link}",
+        "A galera já tá dentro {hora}h — confere! {link}!",
+        "Sem desculpa, só ação no {hora}h! {link}!",
+        "Janela aberta no {hora}h — aproveita! {link}",
+        "Plano em execução no {hora}h — vem! {link}!",
+        "Oportunidade real agora no {hora}h! {link}",
+        "Ritmo bom no {hora}h — toma a frente! {link}!",
+        "Ao vivo após {hora}h — sente o fluxo! {link}",
+        "Quem tá dentro já avançou — vem pro {hora}h! {link}!",
+        "Pós {hora}h: play direto! {link}",
+        "Ainda dá tempo no {hora}h — chega mais! {link}!",
+        "Aproveita a janela do {hora}h — chama no movimento! {link}",
+        "Execução limpa no {hora}h — resultado aparece! {link}!",
+        "Clima perfeito no {hora}h — entra agora! {link}",
+        "Consistência e decisão no {hora}h — bora! {link}!",
+        "Na prática após {hora}h — vamo! {link}",
+        "Decidiu? participa — {hora}h ON! {link}!",
+        "Oportunidade viva — {hora}h! {link}",
+        "Ainda tá rolando {hora}h — aproveita! {link}!",
+        "Presença que entrega no {hora}h! {link}!",
+        "Vem ver com calma e clareza — {hora}h! {link}",
+        "Joga simples no {hora}h — acompanha! {link}",
+        "Execução pura — {hora}h! {link}!"
+    ],
+    "pos15": [
+        "Movimento firme — entra no ritmo das {hora}h! {link}",
+        "Sessão {hora}h rodando — bora pra prática! {link}!",
+        "Plano rodando no {hora}h — vem! {link}",
+        "Depois das {hora}h tem oportunidade pingando! {link}!",
+        "Aproveita a janela, sem hesitar — {hora}h! {link}",
+        "{hora}h ON — confirma presença e vem! {link}!",
+        "Seguimos no {hora}h — consistência >>> ansiedade! {link}",
+        "Ainda dá tempo nas {hora}h — chega mais! {link}!",
+        "Chance real pra quem decide agora — {hora}h! {link}",
+        "Ritmo bom — toma a frente no {hora}h! {link}!",
+        "Fluxo continua — cola no {hora}h! {link}",
+        "Clareza na execução — {hora}h! {link}!",
+        "Quem tá dentro tá vendo — {hora}h! {link}",
+        "Janela aberta nas {hora}h — aproveita! {link}!",
+        "Decisão simples, play direto — {hora}h! {link}",
+        "Ainda rolando {hora}h — chama no grupo! {link}!",
+        "Presença que vira resultado — {hora}h! {link}",
+        "Bora na prática após {hora}h — vem! {link}!",
+        "Não fica de fora — aparece no {hora}h! {link}!",
+        "Entra e acompanha — {hora}h! {link}!",
+        "Execução limpa — sem drama — {hora}h! {link}",
+        "Acontecendo agora — {hora}h! {link}!",
+        "Segue o plano — {hora}h! {link}!",
+        "Ao vivo no {hora}h — confere! {link}",
+        "Constância na veia — {hora}h! {link}!",
+        "No ar {hora}h — passa no grupo! {link}",
+        "Chegou tua hora — {hora}h! {link}!",
+        "Energia do {hora}h em alta — vem! {link}!",
+        "Quem aparece, avança — {hora}h! {link}!",
+        "Ainda dá tempo! {hora}h tá rolando! {link}!"
     ],
     "pos20": [
-        "Pós {hora}h: reta final — ainda dá pra aproveitar forte! {link}",
-        "Sessão {hora}h rodando — vem ver ao vivo! {link}!",
-        "Depois das {hora}h é foco total até o fechamento! {link}",
-        "Pós {hora}h: não deixa a oportunidade passar! {link}!",
+        "Reta final — ainda dá pra aproveitar forte às {hora}h! {link}",
+        "Sessão {hora}h rodando — confere ao vivo! {link}!",
+        "Fechamento do dia com foco total — {hora}h! {link}",
+        "Não deixa passar — {hora}h! {link}!",
         "Ritmo forte após {hora}h — cola agora! {link}",
-        "Quem tá no {hora}h já sentiu o fluxo — vem junto! {link}!",
-        "Pós {hora}h: execução sem drama, só play! {link}",
+        "Quem tá no {hora}h já sentiu o fluxo — vem! {link}!",
+        "Sem drama — só play no {hora}h! {link}",
         "Ainda há janela após {hora}h — chega mais! {link}!",
         "{hora}h tá quente — entra e acompanha! {link}",
-        "Pós {hora}h: fechamento com consciência! {link}!",
-        "A virada acontece no pós {hora}h — vem! {link}",
-        "Pós {hora}h: foca no essencial e executa! {link}!",
-        "Tudo acontecendo agora no {hora}h — abre o grupo! {link}",
-        "Pós {hora}h: disciplina até o fim! {link}!",
-        "Ainda em tempo no {hora}h — decide e vem! {link}",
-        "Pós {hora}h: presença que fecha o dia certo! {link}!",
+        "Fechamento com consciência — {hora}h! {link}!",
+        "Virada acontece no {hora}h — vem! {link}",
+        "Foco no essencial e executa — {hora}h! {link}!",
+        "Tudo acontecendo agora — abre o grupo! {link}",
+        "Disciplina até o fim — {hora}h! {link}!",
+        "Ainda em tempo — decide e vem no {hora}h! {link}",
+        "Presença que fecha o dia certo — {hora}h! {link}",
         "No ar {hora}h — aproveita o embalo! {link}",
-        "Pós {hora}h: chama no movimento! {link}",
-        "Quem tá dentro tá vendo — entra no {hora}h! {link}!",
-        "Pós {hora}h: ritmo forte, execução clara! {link}",
-        "Últimas oportunidades no {hora}h — cola! {link}!",
-        "Pós {hora}h: fecha o dia de forma inteligente! {link}",
+        "Chama no movimento — {hora}h! {link}",
+        "Quem tá dentro tá vendo — {hora}h! {link}!",
+        "Ritmo forte, execução clara — {hora}h! {link}",
+        "Últimas oportunidades — cola no {hora}h! {link}!",
+        "Fecha o dia de forma inteligente — {hora}h! {link}",
         "Ainda rolando {hora}h — participa! {link}!",
-        "Pós {hora}h: chega pra sentir no ao vivo! {link}",
-        "Mais uma chance no {hora}h — bora! {link}!",
-        "Pós {hora}h: simples, direto, pra dentro! {link}",
-        "Quem aparece agora ganha amanhã — pós {hora}h! {link}!",
-        "No {hora}h a turma tá avançando — vem! {link}!",
-        "Pós {hora}h: tu decide, tu colhe! {link}!",
-        "Hora de entrar no jogo — pós {hora}h! {link}!"
+        "Chega pra sentir no ao vivo — {hora}h! {link}",
+        "Mais uma chance — {hora}h! {link}!",
+        "Simples, direto — pra dentro no {hora}h! {link}",
+        "Quem aparece agora ganha amanhã — {hora}h! {link}!",
+        "A turma tá avançando — {hora}h! {link}!",
+        "Tu decide, tu colhe — {hora}h! {link}!",
+        "Hora de entrar no jogo — {hora}h! {link}!"
     ],
+
+    # EXTRAS
     "extra1130": [
         "Extra 11:30 — entra e confere! {link}!",
-        "Ping 11:30: oportunidade boa surgindo! {link}",
-        "11:30 ON — aproveita essa janela! {link}!",
+        "Oportunidade boa surgindo às 11:30! {link}",
+        "11:30 ON — aproveita a janela! {link}!",
         "Extra 11:30: simples, direto e prático! {link}",
         "Bora na 11:30 — não deixa passar! {link}!",
-        "11:30 é o empurrão do meio da manhã — cola! {link}",
-        "Extra 11:30: foco no essencial! {link}!",
+        "Empurrão do meio da manhã — 11:30! {link}",
+        "Foco no essencial — 11:30! {link}!",
         "Passa no grupo agora — 11:30 rolando! {link}!",
-        "11:30: vamo dar o gás certo! {link}",
+        "11:30: gás na medida! {link}",
         "Extra 11:30 — aparece e executa! {link}!",
         "Janela 11:30 aberta — aproveita! {link}",
-        "Extra 11:30: vem sentir o ritmo! {link}!",
-        "No meio da manhã é onde muita coisa acontece — 11:30! {link}",
-        "11:30 — presença que gera resultado! {link}!",
-        "Extra 11:30: chama no play! {link}",
-        "Confere o que tá rolando 11:30 — bora! {link}!",
-        "Oportunidade boa 11:30 — chega mais! {link}",
-        "Extra 11:30: sem ansiedade, só passo a passo! {link}",
-        "11:30 ON — execução limpa! {link}!",
-        "Pinga na 11:30 e vem pro grupo! {link}!",
-        "Extra 11:30: momento certeiro! {link}",
-        "Aproveita a 11:30 — janelinha esperta! {link}!",
-        "11:30 chamando — vem junto! {link}!",
-        "Extra 11:30 — ritmo bom, presença conta! {link}",
-        "11:30: dá tempo de entrar e acompanhar! {link}!",
-        "Extra 11:30: hoje tem! {link}!",
-        "Ponto de virada na 11:30 — aparece! {link}",
-        "Janela de confirmação 11:30 — cola! {link}!",
-        "Extra 11:30: bora acelerar! {link}",
-        "11:30 — simples, direto e ao vivo! {link}!"
+        "Vem sentir o ritmo — 11:30! {link}!",
+        "Muita coisa acontece 11:30 — confere! {link}",
+        "Presença que gera resultado — 11:30! {link}!",
+        "Chama no play — 11:30! {link}",
+        "Confere o que tá rolando — 11:30! {link}!",
+        "Oportunidade boa — 11:30! {link}",
+        "Sem ansiedade — passo a passo 11:30! {link}",
+        "Execução limpa às 11:30! {link}!",
+        "Pinga na 11:30 e vem! {link}!",
+        "Momento certeiro — 11:30! {link}",
+        "Janelinha esperta — 11:30! {link}!",
+        "Chamando geral — 11:30! {link}!",
+        "Ritmo bom — 11:30! {link}",
+        "Dá tempo de entrar e acompanhar — 11:30! {link}!",
+        "Hoje tem — 11:30! {link}!",
+        "Ponto de virada — 11:30! {link}",
+        "Janela de confirmação — 11:30! {link}!",
+        "Bora acelerar — 11:30! {link}",
+        "Simples, direto e ao vivo — 11:30! {link}!"
     ],
     "extra1630": [
         "Extra 16:30 — acelera a tarde! {link}!",
         "16:30 ON — passa no grupo! {link}",
-        "Ping 16:30: oportunidade clara! {link}!",
-        "16:30: hora de ajustar as velas! {link}",
-        "Extra 16:30 — janela boa surgindo! {link}!",
-        "Vem na 16:30 — sem enrolar! {link}",
-        "16:30: execução simples e direta! {link}!",
-        "Extra 16:30 — presença = resultado! {link}",
-        "16:30 ON — chega junto! {link}!",
-        "16:30: bora aproveitar! {link}",
-        "Extra 16:30: chama no movimento! {link}!",
-        "16:30 é a virada da tarde — cola! {link}",
-        "Ponto quente 16:30 — aparece! {link}!",
-        "Extra 16:30: foco e play! {link}!",
-        "16:30 ON — pega o timing! {link}!",
-        "Extra 16:30: sem desculpa, só ação! {link}",
+        "Oportunidade clara — 16:30! {link}!",
+        "Hora de ajustar as velas — 16:30! {link}",
+        "Janela boa surgindo — 16:30! {link}!",
+        "Sem enrolar — 16:30! {link}",
+        "Execução simples e direta — 16:30! {link}!",
+        "Presença = resultado — 16:30! {link}",
+        "Chega junto — 16:30 ON! {link}!",
+        "Aproveita — 16:30! {link}",
+        "Chama no movimento — 16:30! {link}!",
+        "Virada da tarde — 16:30! {link}",
+        "Ponto quente — 16:30! {link}!",
+        "Foco e play — 16:30! {link}!",
+        "Pega o timing — 16:30! {link}!",
+        "Sem desculpa, só ação — 16:30! {link}",
         "Energia da tarde em alta — 16:30! {link}!",
-        "16:30: confirma presença e vem! {link}",
-        "Extra 16:30: janela estratégica! {link}!",
-        "16:30 no ar — chama no grupo! {link}",
-        "Extra 16:30: passo a passo claro! {link}!",
-        "16:30: bora pro ao vivo! {link}",
-        "Extra 16:30 — decisão certa agora! {link}!",
-        "Janela 16:30 — aproveita e cola! {link}",
-        "16:30: quem aparece, avança! {link}!",
-        "Extra 16:30: play direto! {link}",
-        "16:30 ON — bora sentir o fluxo! {link}!",
-        "Extra 16:30: tu dentro do jogo! {link}",
-        "16:30: simples e efetivo! {link}!",
-        "Extra 16:30 — não perde essa! {link}!"
+        "Confirma presença e vem — 16:30! {link}",
+        "Janela estratégica — 16:30! {link}!",
+        "No ar 16:30 — chama no grupo! {link}",
+        "Passo a passo claro — 16:30! {link}!",
+        "Bora pro ao vivo — 16:30! {link}",
+        "Decisão certa agora — 16:30! {link}!",
+        "Janela 16:30 — aproveita! {link}",
+        "Quem aparece, avança — 16:30! {link}!",
+        "Play direto — 16:30! {link}",
+        "Sente o fluxo — 16:30 ON! {link}!",
+        "Dentro do jogo — 16:30! {link}",
+        "Simples e efetivo — 16:30! {link}!",
+        "Não perde essa — 16:30! {link}!"
     ],
     "extra1830": [
         "Extra 18:30 — aquece pra noite! {link}!",
         "18:30 ON — já prepara pra 20h! {link}",
-        "Ping 18:30: dá tempo de entrar! {link}!",
-        "18:30: vem sentir o fluxo! {link}",
-        "Extra 18:30 — sem ansiedade, só passo a passo! {link}!",
-        "18:30: confirmando oportunidades — cola! {link}",
-        "Janela 18:30 — aparece agora! {link}!",
-        "18:30 ON — segue o plano! {link}",
-        "Extra 18:30 — acelera o jogo! {link}!",
-        "18:30: presença que conta! {link}",
-        "Extra 18:30: ritmo certo pra noite! {link}!",
-        "18:30 — chama no grupo e vem! {link}",
-        "Extra 18:30: tu pronto pro {hora}h! {link}!",
-        "18:30 ON — clareza e execução! {link}!",
-        "Extra 18:30: play seguro e direto! {link}",
-        "18:30: quem vem agora chega na frente! {link}!",
-        "Extra 18:30: foco na prática! {link}!",
-        "18:30 — energia subindo, cola! {link}",
-        "Extra 18:30: bora aquecer! {link}!",
-        "18:30 ON — aparece e executa! {link}!",
-        "Extra 18:30: timing perfeito! {link}",
-        "18:30: vamo pra dentro! {link}!",
-        "Extra 18:30: chama que tá rolando! {link}",
-        "18:30 — vem pro ao vivo! {link}!",
-        "Extra 18:30: responde presente! {link}",
-        "18:30: ajuste final antes da noite! {link}!",
-        "Extra 18:30: janela boa pra entrar! {link}",
-        "18:30 ON — intensidade certa! {link}!",
-        "Extra 18:30: partiu grupo! {link}",
-        "18:30: rumo ao {hora}h — cola! {link}!"
+        "Dá tempo de entrar — 18:30! {link}!",
+        "Sente o fluxo — 18:30! {link}",
+        "Sem ansiedade — passo a passo 18:30! {link}!",
+        "Confirmando oportunidades — 18:30! {link}",
+        "Janela boa — 18:30! {link}!",
+        "Segue o plano — 18:30 ON! {link}",
+        "Acelera o jogo — 18:30! {link}!",
+        "Presença que conta — 18:30! {link}",
+        "Ritmo certo pra noite — 18:30! {link}!",
+        "Chama no grupo e vem — 18:30! {link}",
+        "Pronto pro {hora}h — 18:30! {link}!",
+        "Clareza e execução — 18:30! {link}!",
+        "Play seguro e direto — 18:30! {link}",
+        "Quem vem agora chega na frente — 18:30! {link}!",
+        "Foco na prática — 18:30! {link}!",
+        "Energia subindo — 18:30! {link}",
+        "Bora aquecer — 18:30! {link}!",
+        "Aparece e executa — 18:30 ON! {link}",
+        "Timing perfeito — 18:30! {link}",
+        "Vamo pra dentro — 18:30! {link}!",
+        "Tá rolando — 18:30! {link}",
+        "Vem pro ao vivo — 18:30! {link}!",
+        "Responde presente — 18:30! {link}",
+        "Ajuste final antes da noite — 18:30! {link}!",
+        "Janela boa pra entrar — 18:30! {link}",
+        "Intensidade certa — 18:30! {link}!",
+        "Partiu grupo — 18:30! {link}",
+        "Rumo às {hora}h — 18:30! {link}!"
     ],
+
+    # BOA NOITE
     "boanoite": [
         "Fechamos o dia — amanhã te espero às 10h. Boa noite!",
         "Dia concluído. Descansa e volta amanhã com foco!",
@@ -351,7 +358,7 @@ POOLS = {
     ]
 }
 
-# ================== EMOJIS (mix automático) ==================
+# ================== EMOJIS (mix) ==================
 EMOJIS_DEFAULT = ["🔥","💥","🚀","💰","⚡️","✅","📈","🎯","🟢"]
 EMOJIS_BOANOITE = ["🌙","✨","😴","✅"]
 
@@ -360,16 +367,14 @@ def _has_trailing_emoji(s: str) -> bool:
     return any(s.rstrip().endswith(e) for e in tail)
 
 def add_emoji_variation(text: str, pool: str) -> str:
-    if _has_trailing_emoji(text):
-        return text
-    if random.random() < 0.60:  # 60% das mensagens ganham emoji
+    if _has_trailing_emoji(text): return text
+    if random.random() < 0.60:
         base = EMOJIS_BOANOITE if pool == "boanoite" else EMOJIS_DEFAULT
         one = random.choice(base)
         out = f"{text.rstrip()} {one}"
-        if random.random() < 0.20:  # 20% ganham 2º emoji
+        if random.random() < 0.20:
             two = random.choice(base)
-            if two != one:
-                out = f"{out}{two}"
+            if two != one: out = f"{out}{two}"
         return out
     return text
 
@@ -394,10 +399,10 @@ def botoes_menu():
         [InlineKeyboardButton("ABRIR ✅", url=GRUPO_URL)]
     ])
 
-# ================== ROTINA (rotação por usuário) ==================
+# ================== ROTINA / ENVIO ==================
 def _next_index(context: ContextTypes.DEFAULT_TYPE, chat_id: int, pool: str) -> int:
     state = context.application.user_data.setdefault(chat_id, {})
-    rot = state.setdefault("rot", {})   # rot[pool] = idx
+    rot = state.setdefault("rot", {})
     idx = (rot.get(pool, -1) + 1) % max(1, len(POOLS.get(pool, [])))
     rot[pool] = idx
     return idx
@@ -411,14 +416,13 @@ async def send_from_pool(pool: str, context: ContextTypes.DEFAULT_TYPE, chat_id:
     txt = add_emoji_variation(txt, pool)
     await context.bot.send_message(chat_id, txt, reply_markup=teclado_variante())
 
-# ================== PDF (local/URL/file_id) ==================
+# ================== PDF ==================
 async def send_bonus_pdf(context, chat_id):
     global FILE_ID
     caption = "📄 Guia Oráculo Black — o seu bônus de início!"
     try:
         if FILE_ID:
-            await context.bot.send_document(chat_id, FILE_ID, caption=caption)
-            return
+            await context.bot.send_document(chat_id, FILE_ID, caption=caption); return
 
         if PDF_URL.lower().startswith("http"):
             msg = await context.bot.send_document(chat_id, PDF_URL, caption=caption)
@@ -430,19 +434,15 @@ async def send_bonus_pdf(context, chat_id):
                 log.info(f"[PDF] alt={alt} exists={alt.exists()}")
                 pdf_path = alt if alt.exists() else pdf_path
             with pdf_path.open("rb") as f:
-                msg = await context.bot.send_document(
-                    chat_id, InputFile(f, filename=pdf_path.name), caption=caption
-                )
+                msg = await context.bot.send_document(chat_id, InputFile(f, filename=pdf_path.name), caption=caption)
 
         fid = msg.document.file_id if msg and msg.document else ""
         if fid:
             FILE_ID = fid
             log.info(f"[PDF] file_id capturado: {FILE_ID}")
             if ADMIN_ID:
-                try:
-                    await context.bot.send_message(int(ADMIN_ID), f"PDF file_id:\n`{FILE_ID}`", parse_mode="Markdown")
-                except Exception:
-                    pass
+                try: await context.bot.send_message(int(ADMIN_ID), f"PDF file_id:\n`{FILE_ID}`", parse_mode="Markdown")
+                except Exception: pass
     except Exception as e:
         log.exception(f"[PDF] erro: {e}")
         await context.bot.send_message(chat_id, "⚠️ Não consegui enviar o PDF agora. Tenta /start de novo depois.")
@@ -456,6 +456,7 @@ def _job(jq, name, at: time, chat_id, cb):
 
 async def schedule_all_user_jobs(job_queue_or_context, chat_id: int):
     jq = getattr(job_queue_or_context, "job_queue", None) or job_queue_or_context
+    # horários (BRT)
     _job(jq, f"pre_10_{chat_id}",   time(9,30,tzinfo=TZ),  chat_id, pre10_cb)
     _job(jq, f"pos_10_{chat_id}",   time(10,15,tzinfo=TZ), chat_id, pos10_cb)
     _job(jq, f"extra_1130_{chat_id}", time(11,30,tzinfo=TZ), chat_id, extra1130_cb)
@@ -465,7 +466,7 @@ async def schedule_all_user_jobs(job_queue_or_context, chat_id: int):
     _job(jq, f"extra_1830_{chat_id}", time(18,30,tzinfo=TZ), chat_id, extra1830_cb)
     _job(jq, f"pre_20_{chat_id}",   time(19,30,tzinfo=TZ), chat_id, pre20_cb)
     _job(jq, f"pos_20_{chat_id}",   time(20,15,tzinfo=TZ), chat_id, pos20_cb)
-    _job(jq, f"boanoite_{chat_id}", time(22,0,tzinfo=TZ),  chat_id, boanoite_cb)
+    _job(jq, f"boanoite_{chat_id}", time(22, 0,tzinfo=TZ), chat_id, boanoite_cb)
 
 async def restore_all_jobs(app):
     total = 0
@@ -474,7 +475,7 @@ async def restore_all_jobs(app):
             await schedule_all_user_jobs(app.job_queue, chat_id); total += 1
     log.info(f"Restore: agendamentos reativados para {total} usuário(s).")
 
-# Callbacks de jobs
+# Callbacks
 async def pre10_cb(c):     await send_from_pool("pre10", c, c.job.chat_id, "10")
 async def pos10_cb(c):     await send_from_pool("pos10", c, c.job.chat_id, "10")
 async def pre15_cb(c):     await send_from_pool("pre15", c, c.job.chat_id, "15")
@@ -515,22 +516,29 @@ async def on_text(u: Update, c: ContextTypes.DEFAULT_TYPE):
         return
     await u.message.reply_text("Escolha uma opção 👇", reply_markup=botoes_menu())
 
+# ---- Sessões (somente horários + semanal) ----
+SEMANA = [
+    ("Segunda-feira",  ["10:00", "15:00", "20:00"]),
+    ("Terça-feira",    ["10:00", "15:00", "20:00"]),
+    ("Quarta-feira",   ["10:00", "15:00", "20:00"]),
+    ("Quinta-feira",   ["10:00", "15:00", "20:00"]),
+    ("Sexta-feira",    ["10:00", "15:00", "20:00"]),
+    ("Sábado",         ["10:00", "15:00", "20:00"]),
+    ("Domingo",        ["10:00", "15:00", "20:00"]),
+]
+
+def _texto_sessoes():
+    linhas = ["⚡ Sessões do dia", "• 10:00", "• 15:00", "• 20:00"]
+    semana = ["", "📅 Cronograma semanal:"]
+    for dia, hs in SEMANA:
+        semana.append(f"• {dia}: " + ", ".join(hs))
+    return "\n".join(linhas + semana)
+
 async def cb_sessoes(u: Update, c: ContextTypes.DEFAULT_TYPE):
     await u.callback_query.answer()
-    txt = ("⚡ Sessões do dia\n"
-           "• 09:30 — Pré 10h\n"
-           "• 10:15 — Pós 10h\n"
-           "• 11:30 — Extra\n"
-           "• 14:30 — Pré 15h\n"
-           "• 15:15 — Pós 15h\n"
-           "• 16:30 — Extra\n"
-           "• 18:30 — Extra\n"
-           "• 19:30 — Pré 20h\n"
-           "• 20:15 — Pós 20h\n"
-           "• 22:00 — Boa noite")
-    await u.callback_query.message.reply_text(txt)
+    await u.callback_query.message.reply_text(_texto_sessoes())
 
-# -------- testes rápidos
+# -------- testes
 async def cmd_teste(u: Update, c: ContextTypes.DEFAULT_TYPE):
     chat_id = u.effective_chat.id
     await send_from_pool("pre10", c, chat_id, "10")
@@ -547,7 +555,7 @@ async def cmd_agora(u: Update, c: ContextTypes.DEFAULT_TYPE):
     else:                              await send_from_pool("boanoite", c, chat_id)
     await u.message.reply_text("✅ Mensagem ‘agora’ enviada.")
 
-# -------- comandos pool específicos (inclui /poolpos10)
+# pools individuais
 async def cmd_pool_pre10(u,c):      await send_from_pool("pre10", c, u.effective_chat.id, "10")
 async def cmd_pool_pos10(u,c):      await send_from_pool("pos10", c, u.effective_chat.id, "10")
 async def cmd_pool_pre15(u,c):      await send_from_pool("pre15", c, u.effective_chat.id, "15")
@@ -559,11 +567,27 @@ async def cmd_pool_extra1630(u,c):  await send_from_pool("extra1630", c, u.effec
 async def cmd_pool_extra1830(u,c):  await send_from_pool("extra1830", c, u.effective_chat.id)
 async def cmd_pool_boanoite(u,c):   await send_from_pool("boanoite", c, u.effective_chat.id)
 
-# -------- PDF debug
+# pdf helpers
 async def cmd_pdf(u,c):   await send_bonus_pdf(c, u.effective_chat.id); await u.message.reply_text("🧪 Tentativa de envio do PDF feita.")
 async def cmd_where(u,c):
     pdf_path = (BASE_DIR / PDF_URL).resolve()
     await u.message.reply_text(f"🔎 PDF_URL={PDF_URL}\nBASE_DIR={BASE_DIR}\nRESOLVIDO={pdf_path}\nEXISTS={pdf_path.exists()}")
+
+# help / unknown
+async def cmd_help(u, c):
+    txt = (
+        "Comandos:\n"
+        "/start /stop /help /sessoes\n"
+        "/teste /agora /pdf /where\n"
+        "/poolpre10 /poolpos10 /poolpre15 /poolpos15 /poolpre20 /poolpos20\n"
+        "/poolextra1130 /poolextra1630 /poolextra1830 /poolboanoite"
+    )
+    await u.message.reply_text(txt)
+
+async def cmd_unknown(u, c):
+    name = (u.message.text or "").strip()
+    logging.warning(f"[UNKNOWN CMD] {name} de {u.effective_chat.id}")
+    await u.message.reply_text("⚠️ Comando não reconhecido. Use /help pra ver a lista.")
 
 # ================== MAIN ==================
 def main():
@@ -573,28 +597,36 @@ def main():
     async def _post_init(a): await restore_all_jobs(a)
     app.post_init = _post_init
 
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("stop",  cmd_stop))
-    app.add_handler(CommandHandler("teste", cmd_teste))
-    app.add_handler(CommandHandler("agora", cmd_agora))
-    app.add_handler(CallbackQueryHandler(cb_sessoes, pattern="^sessoes$"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    # 1) comandos
+    app.add_handler(CommandHandler("start",  cmd_start))
+    app.add_handler(CommandHandler("stop",   cmd_stop))
+    app.add_handler(CommandHandler("help",   cmd_help))
+    app.add_handler(CommandHandler("sessoes", lambda u,c: c.application.create_task(cb_sessoes(u,c))))
+    app.add_handler(CommandHandler("teste",  cmd_teste))
+    app.add_handler(CommandHandler("agora",  cmd_agora))
+    app.add_handler(CommandHandler("pdf",    cmd_pdf))
+    app.add_handler(CommandHandler("where",  cmd_where))
 
-    # pools individuais (inclui o que você digitou)
-    app.add_handler(CommandHandler("poolpre10",  cmd_pool_pre10))
-    app.add_handler(CommandHandler("poolpos10",  cmd_pool_pos10))   # << /poolpos10
-    app.add_handler(CommandHandler("poolpre15",  cmd_pool_pre15))
-    app.add_handler(CommandHandler("poolpos15",  cmd_pool_pos15))
-    app.add_handler(CommandHandler("poolpre20",  cmd_pool_pre20))
-    app.add_handler(CommandHandler("poolpos20",  cmd_pool_pos20))
+    # 2) pools
+    app.add_handler(CommandHandler("poolpre10",     cmd_pool_pre10))
+    app.add_handler(CommandHandler("poolpos10",     cmd_pool_pos10))
+    app.add_handler(CommandHandler("poolpre15",     cmd_pool_pre15))
+    app.add_handler(CommandHandler("poolpos15",     cmd_pool_pos15))
+    app.add_handler(CommandHandler("poolpre20",     cmd_pool_pre20))
+    app.add_handler(CommandHandler("poolpos20",     cmd_pool_pos20))
     app.add_handler(CommandHandler("poolextra1130", cmd_pool_extra1130))
     app.add_handler(CommandHandler("poolextra1630", cmd_pool_extra1630))
     app.add_handler(CommandHandler("poolextra1830", cmd_pool_extra1830))
-    app.add_handler(CommandHandler("poolboanoite", cmd_pool_boanoite))
+    app.add_handler(CommandHandler("poolboanoite",  cmd_pool_boanoite))
 
-    # pdf helpers
-    app.add_handler(CommandHandler("pdf",   cmd_pdf))
-    app.add_handler(CommandHandler("where", cmd_where))
+    # 3) callback botão
+    app.add_handler(CallbackQueryHandler(cb_sessoes, pattern="^sessoes$"))
+
+    # 4) catch-all de comandos
+    app.add_handler(MessageHandler(filters.COMMAND, cmd_unknown))
+
+    # 5) texto comum
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
     log.info("Bot iniciado. Aguardando mensagens…")
     app.run_polling()
