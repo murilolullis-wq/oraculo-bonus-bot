@@ -3,32 +3,29 @@ from datetime import datetime, date, time, timedelta
 import pytz
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
-from telegram.constants import ParseMode
 from telegram.ext import (
-    Application, ApplicationBuilder, CommandHandler, MessageHandler,
-    CallbackQueryHandler, ConversationHandler, ContextTypes, filters
+    ApplicationBuilder, Application, CommandHandler, MessageHandler,
+    CallbackQueryHandler, ContextTypes, filters
 )
 
-# ---------------- LOG ----------------
+# ================= LOG =================
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=logging.INFO
 )
 log = logging.getLogger("oraculo-bonus-bot")
 
-# ---------------- ENV ----------------
+# ============== ENV VARS ==============
 BOT_TOKEN  = os.getenv("BOT_TOKEN")
 LINK_CAD   = os.getenv("LINK_CAD")        # cadastro/depósito/HomeBroker
 LINK_VIDEO = os.getenv("LINK_VIDEO", "")  # opcional
-PDF_URL    = os.getenv("PDF_URL", "")     # URL pública opcional
-GROUP_LINK = os.getenv("GROUP_LINK", "")  # opcional
+PDF_URL    = os.getenv("PDF_URL", "")     # PDF bônus (URL pública)
+GROUP_LINK = os.getenv("GROUP_LINK", "")  # link do grupo (opcional)
 
 TZ = pytz.timezone("America/Sao_Paulo")
 
-# ---------------- STATE + DISK ----------------
-ASK_NAME = 1
+# ============== PERSISTÊNCIA ==============
 STATE_FILE = "oraculo_state.pickle"
-
 SUBSCRIBERS: set[int] = set()
 USERS: dict[int, str] = {}  # chat_id -> nome
 
@@ -38,9 +35,9 @@ def load_state():
         try:
             with open(STATE_FILE, "rb") as f:
                 data = pickle.load(f)
-                SUBSCRIBERS = set(data.get("subs", []))
-                USERS = dict(data.get("users", {}))
-                log.info(f"State: subs={len(SUBSCRIBERS)}, users={len(USERS)}")
+            SUBSCRIBERS = set(data.get("subs", []))
+            USERS = dict(data.get("users", {}))
+            log.info(f"State carregado: subs={len(SUBSCRIBERS)}, users={len(USERS)}")
         except Exception as e:
             log.warning(f"Falha ao carregar state: {e}")
 
@@ -53,411 +50,388 @@ def save_state():
 
 load_state()
 
-# controle de repetição diária (por horário/ocasião)
-USED_TODAY: dict[str, set[str]] = {
-    "pre_m": set(), "pre_t": set(), "pre_n": set(),
-    "during_m": set(), "during_t": set(), "during_n": set(),
-    "post_m": set(), "post_t": set(), "post_n": set(),
-    "goodnight": set()
-}
+# ============== CONTROLES DIÁRIOS ==============
 LAST_BUILD_DAY: date = date.min
+USED_TODAY: dict[str, set[str]] = {
+    # pre/during/post: m/t/n   | goodnight: pool único
+    "pre_m": set(), "pre_t": set(), "pre_n": set(),
+    "dur_m": set(), "dur_t": set(), "dur_n": set(),
+    "pos_m": set(), "pos_t": set(), "pos_n": set(),
+    "boa": set(),
+}
 
-# ---------------- HELPERS ----------------
+# ============== HELPERS ==============
 EMOJIS = ["💰","🔥","📈","⚡","🚀","📊","💎","😎","💥","🏆"]
 
 def today_br() -> date:
     return datetime.now(TZ).date()
 
-def maybe_emoji(text: str) -> str:
-    return f"{text} {random.choice(EMOJIS)}" if random.random() < 0.6 else text
+def maybe_emoji(txt: str) -> str:
+    return f"{txt} {random.choice(EMOJIS)}" if random.random() < 0.60 else txt
 
 def name_of(chat_id: int) -> str:
     return USERS.get(chat_id, "").strip()
 
-def personalize(raw: str, chat_id: int) -> str:
-    nome = name_of(chat_id)
-    if "{nome}" in raw:
-        return raw.replace("{nome}", nome or "você")
-    if nome and raw and random.random() < 0.35:
-        return f"{nome}, {raw[0].lower() + raw[1:]}"
-    return raw
+def personalize(raw: str, chat_id: int, hora: str) -> str:
+    nome = name_of(chat_id) or "você"
+    return raw.replace("{nome}", nome).replace("{hora}", hora)
 
-def cta_keyboard() -> InlineKeyboardMarkup:
+def br_time(h: int, m: int = 0) -> time:
+    return time(h, m, tzinfo=TZ)
+
+def jitter(t: time, minus=5, plus=5) -> time:
+    now = datetime.now(TZ)
+    base = TZ.localize(datetime(now.year, now.month, now.day, t.hour, t.minute))
+    j = random.randint(-minus, plus)
+    return (base + timedelta(minutes=j)).timetz()
+
+# ===== CTA dinâmico: se texto marcar <<GRUPO>>, usar só botão do grupo =====
+def cta_keyboard_from_text(texto: str) -> InlineKeyboardMarkup:
+    is_grupo = "<<GRUPO>>" in texto
     rows = []
-    if random.random() < 0.5:
-        rows.append([InlineKeyboardButton("🚀 Começar Agora", url=LINK_CAD)])
-        if GROUP_LINK:
-            rows.append([InlineKeyboardButton("✅ ABRIR", url=GROUP_LINK)])
+    if is_grupo and GROUP_LINK:
+        rows.append([InlineKeyboardButton("✅ ABRIR GRUPO", url=GROUP_LINK)])
     else:
-        if GROUP_LINK:
-            rows.append([InlineKeyboardButton("✅ ABRIR", url=GROUP_LINK)])
         rows.append([InlineKeyboardButton("🚀 Começar Agora", url=LINK_CAD)])
+        if GROUP_LINK and random.random() < 0.5:
+            rows.append([InlineKeyboardButton("✅ ABRIR GRUPO", url=GROUP_LINK)])
     if LINK_VIDEO and random.random() < 0.4:
         rows.append([InlineKeyboardButton("🎥 Ver vídeo explicativo", url=LINK_VIDEO)])
     return InlineKeyboardMarkup(rows)
 
 def fixed_shortcuts_keyboard() -> InlineKeyboardMarkup:
-    btns = []
+    rows = []
     if LINK_VIDEO:
-        btns.append([InlineKeyboardButton("🎥 Ver vídeo explicativo", url=LINK_VIDEO)])
-    btns.append([InlineKeyboardButton("🚀 Começar Agora", url=LINK_CAD)])
-    btns.append([InlineKeyboardButton("⚡ Sessões do Dia", callback_data="sessoes")])
+        rows.append([InlineKeyboardButton("🎥 Ver vídeo explicativo", url=LINK_VIDEO)])
+    rows.append([InlineKeyboardButton("🚀 Começar Agora", url=LINK_CAD)])
+    rows.append([InlineKeyboardButton("⚡ Sessões do Dia", callback_data="sessoes")])
     if GROUP_LINK:
-        btns.append([InlineKeyboardButton("✅ ABRIR", url=GROUP_LINK)])
-    return InlineKeyboardMarkup(btns)
+        rows.append([InlineKeyboardButton("✅ ABRIR", url=GROUP_LINK)])
+    return InlineKeyboardMarkup(rows)
 
-def br_time(h: int, m: int = 0) -> time:
-    return time(h, m, tzinfo=TZ)
-
-def jitter_time(h: int, m: int = 0, minus=5, plus=5) -> time:
-    # jitter fixado no boot (suficiente p/ parecer natural)
-    delta = random.randint(-minus, plus)
-    mm = (m + delta) % 60
-    hh = (h + (m + delta) // 60) % 24
-    return time(hh, mm, tzinfo=TZ)
-
-# -------- PDF resiliente (local -> URL -> link em texto) --------
+# ===== PDF (local -> URL -> link) =====
 async def send_bonus_pdf(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     caption = "📄 Guia Oráculo Black — seu material de início!"
     local_path = "guia_oraculo_black.pdf"
 
-    # 1) local
     if os.path.exists(local_path):
         try:
             with open(local_path, "rb") as f:
                 await context.bot.send_document(chat_id=chat_id, document=InputFile(f, filename="guia_oraculo_black.pdf"), caption=caption)
                 return True
         except Exception as e:
-            log.warning(f"Falha enviando PDF local: {e}")
+            log.warning(f"PDF local falhou: {e}")
 
-    # 2) URL direta (o Telegram aceita URL http/https)
     if PDF_URL:
         try:
             await context.bot.send_document(chat_id=chat_id, document=PDF_URL, caption=caption)
             return True
         except Exception as e:
-            log.warning(f"Falha enviando PDF por URL: {e}")
+            log.warning(f"PDF URL falhou: {e}")
         try:
             await context.bot.send_message(chat_id=chat_id, text=f"{caption}\n{PDF_URL}")
             return True
         except Exception as e:
-            log.warning(f"Falha fallback link PDF: {e}")
-
+            log.warning(f"PDF link texto falhou: {e}")
     return False
 
-# -------- Gerador 90 mensagens / ocasião --------
-def build_pool(prefixes, cores, closes, target=90):
-    combos = []
-    for p in prefixes:
-        for c in cores:
-            for cl in closes:
-                combos.append(f"{p} {c}{cl}")
-                if len(combos) >= target * 4:
-                    break
-            if len(combos) >= target * 4: break
-        if len(combos) >= target * 4: break
-    random.shuffle(combos)
-    seen, final = set(), []
-    for s in combos:
-        if s not in seen:
-            final.append(s); seen.add(s)
-        if len(final) >= target: break
-    return final
+# ============== POOLS (90 por ocasião; 30 boa-noite) ==============
+def build_pool_pre() -> list[str]:
+    bases = [
+        # Marca <<GRUPO>> quando o call to action correto é abrir grupo.
+        "<<GRUPO>> {nome}, bora pra sessão das {hora} — entra no grupo agora e chega pronto.",
+        "<<GRUPO>> {nome}, sem enrolar: sessão {hora} já já — entra no grupo e vem.",
+        "{nome}, partiu sessão das {hora}! Ativa tua conta e deixa tudo pronto.",
+        "{nome}, últimos minutos pra sessão {hora} — cadastro/depósito feitos e bora.",
+        "Atenção {nome}: {hora} a gente abre a sessão. Chega pronto e sem correria.",
+        "{nome}, quem chega cedo pega os melhores pontos na sessão das {hora}.",
+        "{nome}, bora pra prática? Sessão {hora} — conta ativa e foco no simples.",
+        "{nome}, sessão {hora} chegando… prepara a banca e entra sem pressa.",
+        "{nome}, {hora} é nossa janela. Garante o acesso e cola.",
+        "Direto ao ponto, {nome}: sessão das {hora}. Resolve o básico e vem.",
+        "{nome}, tua vez hoje às {hora}. Não deixa pra depois.",
+        "{nome}, {hora} abre. Conta ativa, depósito ok e grupo aberto.",
+        "{nome}, chegou a hora: {hora}. Faça o básico e vem pro jogo.",
+        "{nome}, {hora} é hora boa. Chega pronto.",
+        "<<GRUPO>> {nome}, vem pro grupo antes da sessão das {hora} pra não perder o começo.",
+    ]
+    # Expande variando verbos de ação / fechamentos até dar 90
+    closes = ["", " Bora.", " Vem.", " Agora.", " Sem drama.", " Jogo simples.", " Partiu.", " Valendo."]
+    cores = []
+    for b in bases:
+        for c in closes:
+            cores.append((b + c).strip())
+    random.shuffle(cores)
+    return cores[:90] if len(cores) >= 90 else (cores * ((90 // max(1, len(cores))) + 1))[:90]
 
-def split_3x30(pool: list[str]):
-    if len(pool) < 90:
-        ext = pool.copy(); random.shuffle(ext)
-        while len(pool) < 90 and ext:
-            pool.append(random.choice(ext))
-    return pool[0:30], pool[30:60], pool[60:90]
+def build_pool_during() -> list[str]:
+    bases = [
+        "Sessão {hora} rolando — {nome}, confirma leitura, depois executa.",
+        "{nome}, no ritmo da sessão {hora}. Nada de correria — método > pressa.",
+        "Agora é execução, {nome}. Se encaixar no plano, vai — é sessão {hora}.",
+        "Sem FOMO, {nome}. Se a leitura sumiu, espera a próxima (sessão {hora}).",
+        "Ponto limpo > pressa — {nome}, acompanha a sessão {hora} com calma.",
+        "<<GRUPO>> {nome}, tá on a sessão {hora}. Entra no grupo pra acompanhar ao vivo.",
+        "Confirmação primeiro, clique depois — {nome}, sessão {hora}.",
+        "{nome}, acesso pronto te deixa leve na hora do clique. Sessão {hora}.",
+        "Foco no simples, {nome}. Sessão {hora} segue.",
+        "{nome}, lê o movimento e protege a banca. Sessão {hora}.",
+        "Nada de inventar, {nome}. Sessão {hora} pede disciplina.",
+        "<<GRUPO>> {nome}, vem pro grupo acompanhar a sessão {hora} sem perder os pontos.",
+    ]
+    closes = ["", " É isso.", " Sem pressa.", " Só o simples.", " Bora na calma.", " Tamo junto."]
+    cores = []
+    for b in bases:
+        for c in closes:
+            cores.append((b + c).strip())
+    random.shuffle(cores)
+    return cores[:90] if len(cores) >= 90 else (cores * ((90 // max(1, len(cores))) + 1))[:90]
 
-def refresh_all_pools():
+def build_pool_post() -> list[str]:
+    bases = [
+        "Sessão {hora} encerrada — boa, {nome}! Prepara a próxima e segue leve.",
+        "Fechamos a {hora}. {nome}, anota os pontos e volta pronto depois.",
+        "Fim da janela {hora}. {nome}, organiza a banca e mantém o processo.",
+        "Sem revenge, {nome}. Sessão {hora} foi. Foco no plano.",
+        "<<GRUPO>> {nome}, confere o recap no grupo e já te ajeita pra próxima.",
+        "Resultado vem do básico bem-feito. {nome}, {hora} entregue.",
+        "Se faltou, {nome}, resolve agora e volta focado na próxima janela.",
+        "Planilha na mão e cabeça fria — {nome}, {hora} entregue.",
+        "Pra cima, {nome}. {hora} foi. Próxima janela a caminho.",
+        "Simples assim, {nome}. Sessão {hora} concluída.",
+    ]
+    closes = ["", " Tamo junto.", " Partiu próxima.", " Boa.", " Até já.", " Jogo limpo."]
+    cores = []
+    for b in bases:
+        for c in closes:
+            cores.append((b + c).strip())
+    random.shuffle(cores)
+    return cores[:90] if len(cores) >= 90 else (cores * ((90 // max(1, len(cores))) + 1))[:90]
+
+def build_pool_goodnight() -> list[str]:
+    bases = [
+        "Boa noite, {nome}. Amanhã tem sessão — chega pronto.",
+        "Encerramos o dia, {nome}. Prepara a base e descansa.",
+        "Fim do turno, {nome}. A consistência começa no preparo.",
+        "Descansa, {nome}. Amanhã a gente roda de novo.",
+        "Rotina vence hype, {nome}. Amanhã tem {hora} de novo.",
+        "Cabeça leve, {nome}. Planeja hoje, executa amanhã.",
+        "Processo é rei, {nome}. Fecha tudo e vem zerado amanhã.",
+        "Tudo certo por hoje, {nome}. Amanhã tem mais.",
+        "Sem ansiedade, {nome}. Estrutura primeiro, resultado depois.",
+        "Fecha com paz, {nome}. Até amanhã.",
+    ]
+    closes = ["", " Boa.", " Tamo junto.", " Até amanhã.", " Descansa.", " Vamo pra cima amanhã."]
+    out = []
+    for b in bases:
+        for c in closes:
+            out.append((b + " " + c).strip())
+    random.shuffle(out)
+    return out[:30] if len(out) >= 30 else (out * ((30 // max(1, len(out))) + 1))[:30]
+
+# pools fatiados: 90 => 30/30/30
+PRE_M: list[str] = []
+PRE_T: list[str] = []
+PRE_N: list[str] = []
+DUR_M: list[str] = []
+DUR_T: list[str] = []
+DUR_N: list[str] = []
+POS_M: list[str] = []
+POS_T: list[str] = []
+POS_N: list[str] = []
+BOA:   list[str] = []
+
+def refresh_all_pools(force=False):
     global LAST_BUILD_DAY, USED_TODAY
-    global PRE_POOL, DURING_POOL, POST_POOL, GOODNIGHT_POOL
-    global PRE_M, PRE_T, PRE_N, DURING_M, DURING_T, DURING_N, POST_M, POST_T, POST_N
+    global PRE_M, PRE_T, PRE_N, DUR_M, DUR_T, DUR_N, POS_M, POS_T, POS_N, BOA
 
-    if today_br() == LAST_BUILD_DAY:
+    if not force and today_br() == LAST_BUILD_DAY:
         return
     LAST_BUILD_DAY = today_br()
     USED_TODAY = {k: set() for k in USED_TODAY.keys()}
 
-    # PRE
-    pre_pfx = [
-        "{nome}, faltam minutos pra sessão —", "Partiu sessão!", "Hora da abertura —",
-        "Últimos minutos —", "Chega junto —", "Vai começar —", "Atenção —",
-        "Sem enrolar —", "Janela inicial chegando —", "Vem pro simples —",
-        "Quem chega cedo vence —", "Convite direto —", "Reta final —",
-        "Direto ao ponto —", "Tua vez —", "Sem desculpa —", "Bora pra prática —",
-        "Momento certo —", "Alerta de início —", "Tá valendo —"
-    ]
-    pre_core = [
-        "ativa tua conta, faz o primeiro depósito e entra no grupo.",
-        "cria a conta e deixa a plataforma no gatilho.",
-        "garante teu cadastro/depósito agora e abre o grupo.",
-        "organiza a banca e cola na sessão com calma.",
-        "deixa o acesso pronto pra pegar a primeira janela.",
-        "conta ativa e banca pronta — o resto é execução.",
-        "em 1 minuto resolve o acesso e vem pro grupo.",
-        "acesso pronto hoje = execução tranquila agora.",
-        "sem travar: cadastro e depósito feitos, bora operar.",
-        "cria a conta, confirma o acesso e entra nas sessões.",
-        "quem tá pronto pega os melhores pontos. Ativa e vem.",
-        "chega pronto: conta ativa, grupo aberto e gestão.",
-        "resolve o depósito agora e acompanha a abertura.",
-        "o básico paga o dia: ativa e entra na sessão.",
-        "não perde tempo — acesso pronto e partiu."
-    ]
-    pre_close = ["", " Bora.", " Vem.", " Agora.", " Sem drama.", " Faz e cola.", " Jogo simples.", " Partiu.", " Valendo.", " Te espero no grupo."]
-    PRE_POOL = build_pool(pre_pfx, pre_core, pre_close, target=90)
+    pre_pool = build_pool_pre()
+    dur_pool = build_pool_during()
+    pos_pool = build_pool_post()
+    boa_pool = build_pool_goodnight()
 
-    # DURING
-    during_pfx = [
-        "Sessão rolando —", "No ritmo —", "Calma e método —", "Sem FOMO —",
-        "Confirmação primeiro —", "Ponto limpo > pressa —", "Na boa —",
-        "Foco no simples —", "Cabeça fria —", "Processo acima de hype —",
-        "Agora é execução —", "Olho na leitura —", "Nada de correria —"
-    ]
-    during_core = [
-        "se ainda não ativou tua conta, resolve agora e acompanha a leitura.",
-        "deixa teu acesso e depósito ok e segue o plano.",
-        "se encaixar no teu plano, executa; se não, espera a próxima.",
-        "acesso pronto te deixa leve na hora do clique.",
-        "organiza a banca e protege o caixa.",
-        "conta ativa + grupo aberto = execução sem correria.",
-        "se travar, respira e ajusta. Acesso em dia ajuda.",
-        "quem preparou o acesso joga no fácil.",
-        "teu futuro curte disciplina. Prepara a base e vai.",
-        "é método, não sorte. Deixa tudo pronto e acompanha.",
-        "leitura confirma, depois o clique. Acesso pronto.",
-        "sem improviso: confirma e só então entra.",
-        "se a leitura sumiu, espera a próxima e mantém a calma."
-    ]
-    during_close = ["", " Sem pressa.", " É isso.", " Vai no básico.", " Bora na calma.", " Sem inventar.", " Tamo junto.", " Acompanha no grupo.", " Só o simples.", " Vambora."]
-    DURING_POOL = build_pool(during_pfx, during_core, during_close, target=90)
+    PRE_M, PRE_T, PRE_N = pre_pool[0:30], pre_pool[30:60], pre_pool[60:90]
+    DUR_M, DUR_T, DUR_N = dur_pool[0:30], dur_pool[30:60], dur_pool[60:90]
+    POS_M, POS_T, POS_N = pos_pool[0:30], pos_pool[30:60], pos_pool[60:90]
+    BOA = boa_pool
 
-    # POST
-    post_pfx = [
-        "Sessão encerrada —", "Boa —", "Fechamos —", "Fim da janela —",
-        "Organiza aí —", "Meta ou não —", "Na paz —", "Sem revenge —",
-        "Planilha na mão —", "Respira —", "Foco no processo —", "Pra cima —"
-    ]
-    post_core = [
-        "deixa tua conta/depósito em dia e volta no próximo horário pronto.",
-        "anota dois pontos e garante o acesso pra próxima.",
-        "estrutura hoje e colhe na próxima sessão.",
-        "cadastro/depósito ok agora = execução tranquila depois.",
-        "quem se organiza agora opera melhor depois.",
-        "prepara a base: conta, grupo e gestão.",
-        "resultado vem do básico bem-feito. Deixa tudo pronto.",
-        "sem improviso amanhã — resolve hoje.",
-        "te vejo na próxima janela. Chega pronto.",
-        "o jogo é diário. Acesso ativo e cabeça fria.",
-        "faz o simples entre as sessões: organizar e descansar.",
-        "se faltou, resolve agora e volta focado."
-    ]
-    post_close = ["", " Simples assim.", " Bora.", " Fechou.", " Sem drama.", " Jogo limpo.", " Partiu próxima.", " É sobre método.", " Tamo junto.", " Até já."]
-    POST_POOL = build_pool(post_pfx, post_core, post_close, target=90)
+    log.info(f"Pools {LAST_BUILD_DAY} -> PRE/DUR/POS: 90/90/90 (30x cada) | BOA: {len(BOA)}")
 
-    # GOOD NIGHT (pool único)
-    night_pfx = [
-        "Boa noite —", "Fechamos o dia —", "Encerramento —", "Fim do turno —",
-        "Descansa —", "Amanhã tem sessão —", "Tudo certo —", "Rotina > hype —",
-        "Processo é rei —", "Cabeça leve —", "Modo off —"
-    ]
-    night_core = [
-        "deixa tua conta ativa e dorme tranquilo.",
-        "organiza hoje, executa melhor amanhã.",
-        "prepara o acesso e vem pra constância.",
-        "nada de madrugada — volta focado amanhã.",
-        "o mercado abre todo dia; quem vence chega pronto.",
-        "o simples funciona: acesso pronto e gestão.",
-        "tua consistência começa no preparo de hoje.",
-        "planejamento noturno, execução diurna.",
-        "sem ansiedade: estrutura primeiro, resultado depois.",
-        "relaxa — amanhã a gente roda de novo.",
-        "fecha tudo e vem zerado pra próxima."
-    ]
-    night_close = ["", " Até amanhã.", " Tamo junto.", " Boa.", " Bora repetir.", " É isso.", " Vamo pra cima amanhã.", " Só vem.", " Vai dar bom.", " Descansa."]
-    GOODNIGHT_POOL = build_pool(night_pfx, night_core, night_close, target=90)
+refresh_all_pools(force=True)
 
-    # fatiar 90 -> 30/30/30
-    global PRE_M, PRE_T, PRE_N, DURING_M, DURING_T, DURING_N, POST_M, POST_T, POST_N
-    PRE_M, PRE_T, PRE_N = split_3x30(PRE_POOL)
-    DURING_M, DURING_T, DURING_N = split_3x30(DURING_POOL)
-    POST_M, POST_T, POST_N = split_3x30(POST_POOL)
-
-    log.info(f"Pools ({LAST_BUILD_DAY}) | PRE:{len(PRE_POOL)} DUR:{len(DURING_POOL)} POST:{len(POST_POOL)} GN:{len(GOODNIGHT_POOL)}")
-
-refresh_all_pools()
-
-def take_unique(kind_key: str, pool: list[str]) -> str:
-    used = USED_TODAY[kind_key]
+def take_unique(kind: str, pool: list[str]) -> str:
+    used = USED_TODAY[kind]
     for _ in range(len(pool)):
-        m = random.choice(pool)
-        if m not in used:
-            used.add(m); return m
+        s = random.choice(pool)
+        if s not in used:
+            used.add(s)
+            return s
     used.clear()
     return random.choice(pool)
 
-# -------- COPIES FIXAS --------
+# ============== COPIES FIXAS ==============
 WELCOME_TXT = "Opa, seja bem-vindo 😎 Me fala teu nome e já libero teu bônus!"
 AFTER_NAME_TXT = "Shooow, {nome}! Parabéns por fazer parte do nosso time!\n\nAqui está seu bônus 👇"
-SESSOES_TXT = (
-    "⚡ Sessões do dia\n• 10:00\n• 15:00\n• 20:00\n\n"
-    "🗓️ Cronograma semanal:\n• Segunda a Sexta: 10:00, 15:00, 20:00"
-)
+SESSOES_TXT = "⚡ Sessões do dia\n• 10:00\n• 15:00\n• 20:00"
 
-# ---------------- HANDLERS ----------------
+# ============== HANDLERS BÁSICOS ==============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
     await update.message.reply_text(WELCOME_TXT)
-    return ASK_NAME
 
 async def got_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
-        return ConversationHandler.END
+        return
     chat_id = update.effective_chat.id
-    nome = update.message.text.strip()
-    USERS[chat_id] = nome
+    texto = (update.message.text or "").strip()
+    # já tem nome? ignora
+    if chat_id in USERS and USERS[chat_id]:
+        return
+    if not texto:
+        return
+    USERS[chat_id] = texto
     SUBSCRIBERS.add(chat_id)
     save_state()
 
-    await update.message.reply_text(AFTER_NAME_TXT.format(nome=nome))
-
-    # PDF primeiro
+    await update.message.reply_text(AFTER_NAME_TXT.format(nome=texto))
     await send_bonus_pdf(context, chat_id)
-
-    # Botões fixos (sem "clique aqui" em texto)
     await context.bot.send_message(
         chat_id=chat_id,
         text="Atalhos rápidos pra começar 👇",
         reply_markup=fixed_shortcuts_keyboard()
     )
-    return ConversationHandler.END
 
 async def sessoes_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     await q.message.reply_text(SESSOES_TXT)
 
-# ---------------- BROADCAST ----------------
-async def _broadcast(context: ContextTypes.DEFAULT_TYPE, pool: list[str], kind_key: str, tag: str):
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("pong ✅")
+
+async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Comando não reconhecido. Manda /start pra liberar teu bônus 😉")
+
+# ============== BROADCAST SCHEDULED ==============
+# Horários oficiais e labels
+HORAS = {"m":"10:00", "t":"15:00", "n":"20:00"}
+
+async def _broadcast(context: ContextTypes.DEFAULT_TYPE, pool: list[str], used_key: str, hora_str: str):
     if today_br() != LAST_BUILD_DAY:
         refresh_all_pools()
     if not SUBSCRIBERS:
         return
-    raw = take_unique(kind_key, pool)
+    raw = take_unique(used_key, pool)
+    # se a mensagem marca <<GRUPO>>, CTA só do grupo
+    is_grupo = "<<GRUPO>>" in raw
+    clean = raw.replace("<<GRUPO>>", "")
     for chat_id in list(SUBSCRIBERS):
         try:
-            msg = personalize(raw, chat_id)
-            msg = maybe_emoji(msg)
-            await context.bot.send_message(chat_id=chat_id, text=msg, reply_markup=cta_keyboard())
+            txt = personalize(clean, chat_id, hora_str)
+            txt = maybe_emoji(txt)
+            await context.bot.send_message(chat_id=chat_id, text=txt, reply_markup=cta_keyboard_from_text(raw))
         except Exception as e:
-            log.warning(f"Falha ao enviar ({tag}) p/ {chat_id}: {e}")
+            log.warning(f"Falha broadcast {used_key} -> {chat_id}: {e}")
 
-# PRÉ
-async def pre_morning(ctx):   await _broadcast(ctx, PRE_M, "pre_m", "pre_morning")
-async def pre_afternoon(ctx): await _broadcast(ctx, PRE_T, "pre_t", "pre_afternoon")
-async def pre_night(ctx):     await _broadcast(ctx, PRE_N, "pre_n", "pre_night")
+# Pré (30 por horário)
+async def pre_m(ctx): await _broadcast(ctx, PRE_M, "pre_m", HORAS["m"])
+async def pre_t(ctx): await _broadcast(ctx, PRE_T, "pre_t", HORAS["t"])
+async def pre_n(ctx): await _broadcast(ctx, PRE_N, "pre_n", HORAS["n"])
 
-# DURANTE (2–3 msgs)
+# Durante (2–3 mensagens com intervalos)
 async def during_burst(ctx, tag):
-    if tag == "morning":   pool, key = DURING_M, "during_m"
-    elif tag == "afternoon": pool, key = DURING_T, "during_t"
-    else:                  pool, key = DURING_N, "during_n"
-    n = random.randint(2, 3)
+    if tag=="m": pool, key, hora = DUR_M, "dur_m", HORAS["m"]
+    elif tag=="t": pool, key, hora = DUR_T, "dur_t", HORAS["t"]
+    else: pool, key, hora = DUR_N, "dur_n", HORAS["n"]
+    n = random.randint(2,3)
     for _ in range(n):
-        await _broadcast(ctx, pool, key, f"during_{tag}")
+        await _broadcast(ctx, pool, key, hora)
         await asyncio.sleep(random.randint(180, 420))  # 3–7 min
 
-# PÓS
-async def post_morning(ctx):   await _broadcast(ctx, POST_M, "post_m", "post_morning")
-async def post_afternoon(ctx): await _broadcast(ctx, POST_T, "post_t", "post_afternoon")
-async def post_night(ctx):     await _broadcast(ctx, POST_N, "post_n", "post_night")
+# Pós
+async def post_m(ctx): await _broadcast(ctx, POS_M, "pos_m", HORAS["m"])
+async def post_t(ctx): await _broadcast(ctx, POS_T, "pos_t", HORAS["t"])
+async def post_n(ctx): await _broadcast(ctx, POS_N, "pos_n", HORAS["n"])
 
-# BOA NOITE
-async def good_night(ctx):     await _broadcast(ctx, GOODNIGHT_POOL, "goodnight", "good_night")
+# Boa-noite (30 no pool total)
+async def boa_noite(ctx): await _broadcast(ctx, BOA, "boa", "amanhã")
 
-# -------- COMANDOS DE TESTE (dispara na hora) --------
+# ============== TESTES (disparam na hora) ==============
 async def test_pre(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private": return
-    SUBSCRIBERS.add(update.effective_chat.id); save_state()
-    await pre_morning(context)
+    SUBSCRIBERS.add(update.effective_chat.id); save_state(); await pre_m(context)
 
-async def test_during(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private": return
-    SUBSCRIBERS.add(update.effective_chat.id); save_state()
-    await during_burst(context, "morning")
+async def test_dur(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    SUBSCRIBERS.add(update.effective_chat.id); save_state(); await during_burst(context, "m")
 
-async def test_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private": return
-    SUBSCRIBERS.add(update.effective_chat.id); save_state()
-    await post_morning(context)
+async def test_pos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    SUBSCRIBERS.add(update.effective_chat.id); save_state(); await post_m(context)
 
-async def test_night(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private": return
-    SUBSCRIBERS.add(update.effective_chat.id); save_state()
-    await good_night(context)
+async def test_noite(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    SUBSCRIBERS.add(update.effective_chat.id); save_state(); await boa_noite(context)
 
 async def test_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private": return
     SUBSCRIBERS.add(update.effective_chat.id); save_state()
-    await pre_morning(context); await asyncio.sleep(1)
-    await during_burst(context, "morning"); await asyncio.sleep(1)
-    await post_morning(context); await asyncio.sleep(1)
-    await good_night(context)
+    await pre_m(context); await asyncio.sleep(1)
+    await during_burst(context, "m"); await asyncio.sleep(1)
+    await post_m(context); await asyncio.sleep(1)
+    await boa_noite(context)
 
-# ---------------- SCHEDULE ----------------
-def schedule_daily_jobs(app: Application):
-    jq = getattr(app, "job_queue", None)
+# ============== SCHEDULE ==============
+def schedule_jobs(app: Application):
+    jq = app.job_queue
     if jq is None:
-        raise RuntimeError("JobQueue indisponível (PTB 21.3 requisitado).")
+        raise RuntimeError("JobQueue indisponível.")
 
-    # pré (com jitter gerado no boot)
-    jq.run_daily(pre_morning,   time=jitter_time(9, 50),  name="pre_morning")
-    jq.run_daily(pre_afternoon, time=jitter_time(14, 50), name="pre_afternoon")
-    jq.run_daily(pre_night,     time=jitter_time(19, 50), name="pre_night")
+    # Pré (com jitter ±5 min)
+    jq.run_daily(pre_m, time=jitter(br_time(9,50)),  name="pre_m")
+    jq.run_daily(pre_t, time=jitter(br_time(14,50)), name="pre_t")
+    jq.run_daily(pre_n, time=jitter(br_time(19,50)), name="pre_n")
 
-    # durante
-    jq.run_daily(lambda c: during_burst(c, "morning"),   time=br_time(10, 0), name="during_morning")
-    jq.run_daily(lambda c: during_burst(c, "afternoon"), time=br_time(15, 0), name="during_afternoon")
-    jq.run_daily(lambda c: during_burst(c, "night"),     time=br_time(20, 0), name="during_night")
+    # Durante (burst)
+    jq.run_daily(lambda c: during_burst(c,"m"), time=br_time(10,0), name="dur_m")
+    jq.run_daily(lambda c: during_burst(c,"t"), time=br_time(15,0), name="dur_t")
+    jq.run_daily(lambda c: during_burst(c,"n"), time=br_time(20,0), name="dur_n")
 
-    # pós (jitter no boot)
-    jq.run_daily(post_morning,   time=jitter_time(10, 40), name="post_morning")
-    jq.run_daily(post_afternoon, time=jitter_time(15, 40), name="post_afternoon")
-    jq.run_daily(post_night,     time=jitter_time(21,  0), name="post_night")
+    # Pós (com jitter ±5)
+    jq.run_daily(post_m, time=jitter(br_time(10,40)), name="pos_m")
+    jq.run_daily(post_t, time=jitter(br_time(15,40)), name="pos_t")
+    jq.run_daily(post_n, time=jitter(br_time(21,0)),  name="pos_n")
 
-    # boa noite
-    jq.run_daily(good_night, time=br_time(22, 30), name="good_night")
+    # Boa-noite (22:30)
+    jq.run_daily(boa_noite, time=br_time(22,30), name="boa_noite")
 
-# ---------------- MAIN ----------------
+# ============== MAIN ==============
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN não encontrado nas variáveis de ambiente.")
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, got_name)]},
-        fallbacks=[CommandHandler("start", start)],
-        allow_reentry=True
-    )
-    app.add_handler(conv)
+    # Handlers simples e à prova de bala
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, got_name))
     app.add_handler(CallbackQueryHandler(sessoes_btn, pattern="^sessoes$"))
 
-    # comandos de teste
+    # Testes
+    app.add_handler(CommandHandler("ping",  ping))
     app.add_handler(CommandHandler("teste_pre", test_pre))
-    app.add_handler(CommandHandler("teste_durante", test_during))
-    app.add_handler(CommandHandler("teste_pos", test_post))
-    app.add_handler(CommandHandler("teste_noite", test_night))
+    app.add_handler(CommandHandler("teste_durante", test_dur))
+    app.add_handler(CommandHandler("teste_pos", test_pos))
+    app.add_handler(CommandHandler("teste_noite", test_noite))
     app.add_handler(CommandHandler("teste", test_all))
 
-    schedule_daily_jobs(app)
+    # Catch-all pra comandos desconhecidos
+    app.add_handler(MessageHandler(filters.COMMAND, unknown))
+
+    schedule_jobs(app)
     log.info("Bot iniciado. Agendadores ativos (BR -03:00).")
-    app.run_polling(close_loop=False)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, close_loop=False)
 
 if __name__ == "__main__":
     main()
