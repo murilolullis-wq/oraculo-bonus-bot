@@ -1,8 +1,8 @@
-import os, random, logging, asyncio
+import os, random, logging, asyncio, pickle
 from datetime import datetime, date, time, timedelta
 import pytz
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, URLInputFile
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler,
@@ -20,15 +20,39 @@ log = logging.getLogger("oraculo-bonus-bot")
 BOT_TOKEN  = os.getenv("BOT_TOKEN")
 LINK_CAD   = os.getenv("LINK_CAD")        # cadastro/depósito/HomeBroker
 LINK_VIDEO = os.getenv("LINK_VIDEO", "")  # opcional
-PDF_URL    = os.getenv("PDF_URL", "")     # PDF bônus
+PDF_URL    = os.getenv("PDF_URL", "")     # PDF bônus (URL pública)
 GROUP_LINK = os.getenv("GROUP_LINK", "")  # opcional
 
 TZ = pytz.timezone("America/Sao_Paulo")
 
-# ============== STATE ==============
+# ============== STATE + PERSISTÊNCIA ==============
 ASK_NAME = 1
+STATE_FILE = "oraculo_state.pickle"
+
 SUBSCRIBERS: set[int] = set()
 USERS: dict[int, str] = {}  # chat_id -> nome
+
+def load_state():
+    global SUBSCRIBERS, USERS
+    if os.path.exists(STATE_FILE):
+        try:
+            with open(STATE_FILE, "rb") as f:
+                data = pickle.load(f)
+                SUBSCRIBERS = set(data.get("subs", []))
+                USERS = dict(data.get("users", {}))
+                log.info(f"State carregado: subs={len(SUBSCRIBERS)}, users={len(USERS)}")
+        except Exception as e:
+            log.warning(f"Falha ao carregar state: {e}")
+
+def save_state():
+    try:
+        with open(STATE_FILE, "wb") as f:
+            pickle.dump({"subs": list(SUBSCRIBERS), "users": USERS}, f)
+    except Exception as e:
+        log.warning(f"Falha ao salvar state: {e}")
+
+# carrega no boot
+load_state()
 
 # controle de repetição diária (por horário/ocasião)
 USED_TODAY: dict[str, set[str]] = {
@@ -61,7 +85,6 @@ def personalize(raw: str, chat_id: int) -> str:
 
 def cta_keyboard() -> InlineKeyboardMarkup:
     rows = []
-    # Alterna a ordem dos CTAs
     if random.random() < 0.5:
         rows.append([InlineKeyboardButton("🚀 Começar Agora", url=LINK_CAD)])
         if GROUP_LINK:
@@ -70,7 +93,6 @@ def cta_keyboard() -> InlineKeyboardMarkup:
         if GROUP_LINK:
             rows.append([InlineKeyboardButton("✅ ABRIR", url=GROUP_LINK)])
         rows.append([InlineKeyboardButton("🚀 Começar Agora", url=LINK_CAD)])
-    # Vídeo às vezes
     if LINK_VIDEO and random.random() < 0.4:
         rows.append([InlineKeyboardButton("🎥 Ver vídeo explicativo", url=LINK_VIDEO)])
     return InlineKeyboardMarkup(rows)
@@ -89,11 +111,39 @@ def br_time(h: int, m: int = 0) -> time:
     return time(h, m, tzinfo=TZ)
 
 def jitter(t: time, minus=5, plus=5) -> time:
-    # cria um datetime "hoje" no fuso BR a partir do time e aplica jitter
     now = datetime.now(TZ)
     base = TZ.localize(datetime(now.year, now.month, now.day, t.hour, t.minute))
     dmin = random.randint(-minus, plus)
     return (base + timedelta(minutes=dmin)).timetz()
+
+# ====== Envio resiliente do PDF (local -> URL -> link em texto) ======
+async def send_bonus_pdf(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+    caption = "📄 Guia Oráculo Black — seu material de início!"
+    local_path = "guia_oraculo_black.pdf"
+
+    if os.path.exists(local_path):
+        try:
+            await context.bot.send_document(chat_id=chat_id, document=FSInputFile(local_path), caption=caption)
+            return True
+        except Exception as e:
+            log.warning(f"Falha enviando PDF local: {e}")
+
+    if PDF_URL:
+        try:
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=URLInputFile(PDF_URL, filename="guia_oraculo_black.pdf"),
+                caption=caption
+            )
+            return True
+        except Exception as e:
+            log.warning(f"Falha enviando PDF por URL: {e}")
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=f"{caption}\n{PDF_URL}")
+            return True
+        except Exception as e:
+            log.warning(f"Falha no fallback de link do PDF: {e}")
+    return False
 
 # ============== GERADOR DE 90 MENSAGENS POR OCASIÃO ==============
 def build_pool(prefixes, cores, closes, target=90):
@@ -102,7 +152,7 @@ def build_pool(prefixes, cores, closes, target=90):
         for c in cores:
             for cl in closes:
                 combos.append(f"{p} {c}{cl}")
-                if len(combos) >= target * 3:  # gera bastante, depois filtra
+                if len(combos) >= target * 3:
                     break
             if len(combos) >= target * 3:
                 break
@@ -119,19 +169,14 @@ def build_pool(prefixes, cores, closes, target=90):
     return final
 
 def split_3x30(pool: list[str]):
-    """Recebe 90 e devolve 3 listas de 30: (manhã, tarde, noite)."""
     if len(pool) < 90:
         ext = pool.copy()
         random.shuffle(ext)
         while len(pool) < 90 and ext:
             pool.append(random.choice(ext))
-    m = pool[0:30]
-    t = pool[30:60]
-    n = pool[60:90]
-    return m, t, n
+    return pool[0:30], pool[30:60], pool[60:90]
 
 def refresh_all_pools():
-    """Reconstrói os pools 1x por dia (90 por ocasião) e fatia em 30/30/30."""
     global LAST_BUILD_DAY, USED_TODAY
     global PRE_POOL, DURING_POOL, POST_POOL, GOODNIGHT_POOL
     global PRE_M, PRE_T, PRE_N, DURING_M, DURING_T, DURING_N, POST_M, POST_T, POST_N
@@ -141,7 +186,6 @@ def refresh_all_pools():
     LAST_BUILD_DAY = today_br()
     USED_TODAY = {k: set() for k in USED_TODAY.keys()}
 
-    # -------- PRE (cadastro/depósito/entrar)
     pre_pfx = [
         "{nome}, faltam minutos pra sessão —", "Partiu sessão!", "Hora da abertura —",
         "Últimos minutos —", "Chega junto —", "Vai começar —", "Atenção —",
@@ -168,10 +212,8 @@ def refresh_all_pools():
         "não perde tempo — acesso pronto e partiu."
     ]
     pre_close = ["", " Bora.", " Vem.", " Agora.", " Sem drama.", " Faz e cola.", " Jogo simples.", " Partiu.", " Valendo.", " Te espero no grupo."]
-
     PRE_POOL = build_pool(pre_pfx, pre_core, pre_close, target=90)
 
-    # -------- DURING (execução leve + acesso pronto)
     during_pfx = [
         "Sessão rolando —", "No ritmo —", "Calma e método —", "Sem FOMO —",
         "Confirmação primeiro —", "Ponto limpo > pressa —", "Na boa —",
@@ -194,10 +236,8 @@ def refresh_all_pools():
         "se a leitura sumiu, espera a próxima e mantém a calma."
     ]
     during_close = ["", " Sem pressa.", " É isso.", " Vai no básico.", " Bora na calma.", " Sem inventar.", " Tamo junto.", " Acompanha no grupo.", " Só o simples.", " Vambora."]
-
     DURING_POOL = build_pool(during_pfx, during_core, during_close, target=90)
 
-    # -------- POST (fechamento de cada sessão)
     post_pfx = [
         "Sessão encerrada —", "Boa —", "Fechamos —", "Fim da janela —",
         "Organiza aí —", "Meta ou não —", "Na paz —", "Sem revenge —",
@@ -218,10 +258,8 @@ def refresh_all_pools():
         "se faltou, resolve agora e volta focado."
     ]
     post_close = ["", " Simples assim.", " Bora.", " Fechou.", " Sem drama.", " Jogo limpo.", " Partiu próxima.", " É sobre método.", " Tamo junto.", " Até já."]
-
     POST_POOL = build_pool(post_pfx, post_core, post_close, target=90)
 
-    # -------- GOOD NIGHT (22:30) – 90 únicas, sem fatiar
     night_pfx = [
         "Boa noite —", "Fechamos o dia —", "Encerramento —", "Fim do turno —",
         "Descansa —", "Amanhã tem sessão —", "Tudo certo —", "Rotina > hype —",
@@ -241,30 +279,23 @@ def refresh_all_pools():
         "fecha tudo e vem zerado pra próxima."
     ]
     night_close = ["", " Até amanhã.", " Tamo junto.", " Boa.", " Bora repetir.", " É isso.", " Vamo pra cima amanhã.", " Só vem.", " Vai dar bom.", " Descansa."]
-
     GOODNIGHT_POOL = build_pool(night_pfx, night_core, night_close, target=90)
 
-    # FATIA: 90 => 30/30/30 (manhã/tarde/noite) para pré/durante/pós
+    # fatiar 90 -> 30/30/30
     global PRE_M, PRE_T, PRE_N, DURING_M, DURING_T, DURING_N, POST_M, POST_T, POST_N
     PRE_M, PRE_T, PRE_N = split_3x30(PRE_POOL)
     DURING_M, DURING_T, DURING_N = split_3x30(DURING_POOL)
     POST_M, POST_T, POST_N = split_3x30(POST_POOL)
 
-    # Logs de verificação
     log.info(f"Pools atualizados ({LAST_BUILD_DAY})")
-    log.info(f"PRE total: {len(PRE_POOL)} | M/T/N: {len(PRE_M)}/{len(PRE_T)}/{len(PRE_N)}")
-    log.info(f"DURING total: {len(DURING_POOL)} | M/T/N: {len(DURING_M)}/{len(DURING_T)}/{len(DURING_N)}")
-    log.info(f"POST total: {len(POST_POOL)} | M/T/N: {len(POST_M)}/{len(POST_T)}/{len(POST_N)}")
-    log.info(f"GOOD_NIGHT total: {len(GOODNIGHT_POOL)}")
+    log.info(f"PRE: {len(PRE_POOL)} | M/T/N: {len(PRE_M)}/{len(PRE_T)}/{len(PRE_N)}")
+    log.info(f"DURING: {len(DURING_POOL)} | M/T/N: {len(DURING_M)}/{len(DURING_T)}/{len(DURING_N)}")
+    log.info(f"POST: {len(POST_POOL)} | M/T/N: {len(POST_M)}/{len(POST_T)}/{len(POST_N)}")
+    log.info(f"GOOD_NIGHT: {len(GOODNIGHT_POOL)}")
 
-# monta pools no boot
 refresh_all_pools()
 
 def take_unique(kind_key: str, pool: list[str]) -> str:
-    """
-    Pega uma mensagem do pool (30 itens) sem repetir no dia para aquela 'kind_key'.
-    kind_key: pre_m, pre_t, pre_n, during_m, during_t, during_n, post_m, post_t, post_n, goodnight
-    """
     used = USED_TODAY[kind_key]
     for _ in range(len(pool)):
         m = random.choice(pool)
@@ -292,26 +323,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def got_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return ConversationHandler.END
+
     chat_id = update.effective_chat.id
     nome = update.message.text.strip()
     USERS[chat_id] = nome
     SUBSCRIBERS.add(chat_id)
+    save_state()
 
+    # 1) Mensagem de boas-vindas
     await update.message.reply_text(AFTER_NAME_TXT.format(nome=nome))
-    if PDF_URL:
-        try:
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=PDF_URL,
-                caption="📄 Guia Oráculo Black — seu material de início!"
-            )
-        except Exception as e:
-            log.warning(f"Falha ao enviar PDF: {e}")
 
-    if LINK_CAD:
-        txt = "**CLIQUE AQUI** para receber 10.000 e começar a operar agora mesmo:"
-        await context.bot.send_message(chat_id=chat_id, text=f"{txt}\n{LINK_CAD}", parse_mode=ParseMode.MARKDOWN)
+    # 2) PDF primeiro
+    await send_bonus_pdf(context, chat_id)
 
+    # 3) Atalhos rápidos (sem "CLIQUE AQUI")
     await context.bot.send_message(
         chat_id=chat_id,
         text="Atalhos rápidos pra começar 👇",
@@ -326,12 +351,10 @@ async def sessoes_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ============== BROADCAST ==========
 async def _broadcast(context: ContextTypes.DEFAULT_TYPE, pool: list[str], kind_key: str, tag: str):
-    # rebuild diário se virou o dia
     if today_br() != LAST_BUILD_DAY:
         refresh_all_pools()
     if not SUBSCRIBERS:
         return
-
     raw = take_unique(kind_key, pool)
     for chat_id in list(SUBSCRIBERS):
         try:
@@ -346,7 +369,7 @@ async def pre_morning(ctx):   await _broadcast(ctx, PRE_M, "pre_m", "pre_morning
 async def pre_afternoon(ctx): await _broadcast(ctx, PRE_T, "pre_t", "pre_afternoon")
 async def pre_night(ctx):     await _broadcast(ctx, PRE_N, "pre_n", "pre_night")
 
-# DURANTE (2–3 mensagens por janela, usando o pool do horário)
+# DURANTE (2–3 mensagens por janela)
 async def during_burst(ctx, tag):
     if tag == "morning":
         pool, key = DURING_M, "during_m"
@@ -360,13 +383,47 @@ async def during_burst(ctx, tag):
         await _broadcast(ctx, pool, key, f"during_{tag}")
         await asyncio.sleep(random.randint(180, 420))  # 3–7 min
 
-# PÓS (30 por horário)
+# PÓS
 async def post_morning(ctx):   await _broadcast(ctx, POST_M, "post_m", "post_morning")
 async def post_afternoon(ctx): await _broadcast(ctx, POST_T, "post_t", "post_afternoon")
 async def post_night(ctx):     await _broadcast(ctx, POST_N, "post_n", "post_night")
 
-# BOA NOITE (22:30 – usa pool único de 90)
+# BOA NOITE
 async def good_night(ctx):     await _broadcast(ctx, GOODNIGHT_POOL, "goodnight", "good_night")
+
+# ============== COMANDOS DE TESTE (disparam na hora) ==============
+async def test_pre(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+    SUBSCRIBERS.add(update.effective_chat.id); save_state()
+    await pre_morning(context)
+
+async def test_during(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+    SUBSCRIBERS.add(update.effective_chat.id); save_state()
+    await during_burst(context, "morning")
+
+async def test_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+    SUBSCRIBERS.add(update.effective_chat.id); save_state()
+    await post_morning(context)
+
+async def test_night(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+    SUBSCRIBERS.add(update.effective_chat.id); save_state()
+    await good_night(context)
+
+async def test_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+    SUBSCRIBERS.add(update.effective_chat.id); save_state()
+    await pre_morning(context); await asyncio.sleep(1)
+    await during_burst(context, "morning"); await asyncio.sleep(1)
+    await post_morning(context); await asyncio.sleep(1)
+    await good_night(context)
 
 # ============== SCHEDULE ==============
 def schedule_daily_jobs(app: Application):
@@ -407,6 +464,13 @@ def main():
     )
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(sessoes_btn, pattern="^sessoes$"))
+
+    # comandos de teste
+    app.add_handler(CommandHandler("teste_pre", test_pre))
+    app.add_handler(CommandHandler("teste_durante", test_during))
+    app.add_handler(CommandHandler("teste_pos", test_post))
+    app.add_handler(CommandHandler("teste_noite", test_night))
+    app.add_handler(CommandHandler("teste", test_all))
 
     schedule_daily_jobs(app)
     log.info("Bot iniciado. Agendadores ativos (BR -03:00).")
