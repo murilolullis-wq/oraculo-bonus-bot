@@ -592,12 +592,17 @@ async def cmd_unknown(u, c):
 # ================== MAIN ==================
 def main():
     persistence = PicklePersistence(filepath="state_oraculo_bot.pickle")
+
     app = ApplicationBuilder().token(BOT_TOKEN).persistence(persistence).build()
 
-    async def _post_init(a): await restore_all_jobs(a)
+    # pós inicialização garante que o jobqueue e o polling estão ativos
+    async def _post_init(application):
+        await restore_all_jobs(application)
+        log.info("✅ Rotinas restauradas e bot pronto!")
+
     app.post_init = _post_init
 
-    # 1) comandos
+    # ---- comandos principais ----
     app.add_handler(CommandHandler("start",  cmd_start))
     app.add_handler(CommandHandler("stop",   cmd_stop))
     app.add_handler(CommandHandler("help",   cmd_help))
@@ -607,7 +612,7 @@ def main():
     app.add_handler(CommandHandler("pdf",    cmd_pdf))
     app.add_handler(CommandHandler("where",  cmd_where))
 
-    # 2) pools
+    # ---- pools individuais ----
     app.add_handler(CommandHandler("poolpre10",     cmd_pool_pre10))
     app.add_handler(CommandHandler("poolpos10",     cmd_pool_pos10))
     app.add_handler(CommandHandler("poolpre15",     cmd_pool_pre15))
@@ -619,17 +624,18 @@ def main():
     app.add_handler(CommandHandler("poolextra1830", cmd_pool_extra1830))
     app.add_handler(CommandHandler("poolboanoite",  cmd_pool_boanoite))
 
-    # 3) callback botão
+    # ---- callback do botão "Sessões do Dia" ----
     app.add_handler(CallbackQueryHandler(cb_sessoes, pattern="^sessoes$"))
 
-    # 4) catch-all de comandos
+    # ---- comandos desconhecidos ----
     app.add_handler(MessageHandler(filters.COMMAND, cmd_unknown))
 
-    # 5) texto comum
+    # ---- textos gerais ----
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
-    log.info("Bot iniciado. Aguardando mensagens…")
-    app.run_polling()
+    log.info("🚀 Bot iniciado e aguardando mensagens…")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    
 
 if __name__ == "__main__":
     main()
