@@ -2,30 +2,30 @@ import os, random, logging, asyncio, pickle
 from datetime import datetime, date, time, timedelta
 import pytz
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile, URLInputFile
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 from telegram.constants import ParseMode
 from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler,
     CallbackQueryHandler, ConversationHandler, ContextTypes, filters
 )
 
-# ================= LOG =================
+# ---------------- LOG ----------------
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=logging.INFO
 )
 log = logging.getLogger("oraculo-bonus-bot")
 
-# ============== ENV VARS ==============
+# ---------------- ENV ----------------
 BOT_TOKEN  = os.getenv("BOT_TOKEN")
 LINK_CAD   = os.getenv("LINK_CAD")        # cadastro/depósito/HomeBroker
 LINK_VIDEO = os.getenv("LINK_VIDEO", "")  # opcional
-PDF_URL    = os.getenv("PDF_URL", "")     # PDF bônus (URL pública)
+PDF_URL    = os.getenv("PDF_URL", "")     # URL pública opcional
 GROUP_LINK = os.getenv("GROUP_LINK", "")  # opcional
 
 TZ = pytz.timezone("America/Sao_Paulo")
 
-# ============== STATE + PERSISTÊNCIA ==============
+# ---------------- STATE + DISK ----------------
 ASK_NAME = 1
 STATE_FILE = "oraculo_state.pickle"
 
@@ -40,7 +40,7 @@ def load_state():
                 data = pickle.load(f)
                 SUBSCRIBERS = set(data.get("subs", []))
                 USERS = dict(data.get("users", {}))
-                log.info(f"State carregado: subs={len(SUBSCRIBERS)}, users={len(USERS)}")
+                log.info(f"State: subs={len(SUBSCRIBERS)}, users={len(USERS)}")
         except Exception as e:
             log.warning(f"Falha ao carregar state: {e}")
 
@@ -51,7 +51,6 @@ def save_state():
     except Exception as e:
         log.warning(f"Falha ao salvar state: {e}")
 
-# carrega no boot
 load_state()
 
 # controle de repetição diária (por horário/ocasião)
@@ -63,7 +62,7 @@ USED_TODAY: dict[str, set[str]] = {
 }
 LAST_BUILD_DAY: date = date.min
 
-# ============== HELPERS ==============
+# ---------------- HELPERS ----------------
 EMOJIS = ["💰","🔥","📈","⚡","🚀","📊","💎","😎","💥","🏆"]
 
 def today_br() -> date:
@@ -110,31 +109,31 @@ def fixed_shortcuts_keyboard() -> InlineKeyboardMarkup:
 def br_time(h: int, m: int = 0) -> time:
     return time(h, m, tzinfo=TZ)
 
-def jitter(t: time, minus=5, plus=5) -> time:
-    now = datetime.now(TZ)
-    base = TZ.localize(datetime(now.year, now.month, now.day, t.hour, t.minute))
-    dmin = random.randint(-minus, plus)
-    return (base + timedelta(minutes=dmin)).timetz()
+def jitter_time(h: int, m: int = 0, minus=5, plus=5) -> time:
+    # jitter fixado no boot (suficiente p/ parecer natural)
+    delta = random.randint(-minus, plus)
+    mm = (m + delta) % 60
+    hh = (h + (m + delta) // 60) % 24
+    return time(hh, mm, tzinfo=TZ)
 
-# ====== Envio resiliente do PDF (local -> URL -> link em texto) ======
+# -------- PDF resiliente (local -> URL -> link em texto) --------
 async def send_bonus_pdf(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
     caption = "📄 Guia Oráculo Black — seu material de início!"
     local_path = "guia_oraculo_black.pdf"
 
+    # 1) local
     if os.path.exists(local_path):
         try:
-            await context.bot.send_document(chat_id=chat_id, document=FSInputFile(local_path), caption=caption)
-            return True
+            with open(local_path, "rb") as f:
+                await context.bot.send_document(chat_id=chat_id, document=InputFile(f, filename="guia_oraculo_black.pdf"), caption=caption)
+                return True
         except Exception as e:
             log.warning(f"Falha enviando PDF local: {e}")
 
+    # 2) URL direta (o Telegram aceita URL http/https)
     if PDF_URL:
         try:
-            await context.bot.send_document(
-                chat_id=chat_id,
-                document=URLInputFile(PDF_URL, filename="guia_oraculo_black.pdf"),
-                caption=caption
-            )
+            await context.bot.send_document(chat_id=chat_id, document=PDF_URL, caption=caption)
             return True
         except Exception as e:
             log.warning(f"Falha enviando PDF por URL: {e}")
@@ -142,36 +141,32 @@ async def send_bonus_pdf(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
             await context.bot.send_message(chat_id=chat_id, text=f"{caption}\n{PDF_URL}")
             return True
         except Exception as e:
-            log.warning(f"Falha no fallback de link do PDF: {e}")
+            log.warning(f"Falha fallback link PDF: {e}")
+
     return False
 
-# ============== GERADOR DE 90 MENSAGENS POR OCASIÃO ==============
+# -------- Gerador 90 mensagens / ocasião --------
 def build_pool(prefixes, cores, closes, target=90):
     combos = []
     for p in prefixes:
         for c in cores:
             for cl in closes:
                 combos.append(f"{p} {c}{cl}")
-                if len(combos) >= target * 3:
+                if len(combos) >= target * 4:
                     break
-            if len(combos) >= target * 3:
-                break
-        if len(combos) >= target * 3:
-            break
+            if len(combos) >= target * 4: break
+        if len(combos) >= target * 4: break
     random.shuffle(combos)
     seen, final = set(), []
     for s in combos:
         if s not in seen:
-            final.append(s)
-            seen.add(s)
-        if len(final) >= target:
-            break
+            final.append(s); seen.add(s)
+        if len(final) >= target: break
     return final
 
 def split_3x30(pool: list[str]):
     if len(pool) < 90:
-        ext = pool.copy()
-        random.shuffle(ext)
+        ext = pool.copy(); random.shuffle(ext)
         while len(pool) < 90 and ext:
             pool.append(random.choice(ext))
     return pool[0:30], pool[30:60], pool[60:90]
@@ -186,6 +181,7 @@ def refresh_all_pools():
     LAST_BUILD_DAY = today_br()
     USED_TODAY = {k: set() for k in USED_TODAY.keys()}
 
+    # PRE
     pre_pfx = [
         "{nome}, faltam minutos pra sessão —", "Partiu sessão!", "Hora da abertura —",
         "Últimos minutos —", "Chega junto —", "Vai começar —", "Atenção —",
@@ -214,6 +210,7 @@ def refresh_all_pools():
     pre_close = ["", " Bora.", " Vem.", " Agora.", " Sem drama.", " Faz e cola.", " Jogo simples.", " Partiu.", " Valendo.", " Te espero no grupo."]
     PRE_POOL = build_pool(pre_pfx, pre_core, pre_close, target=90)
 
+    # DURING
     during_pfx = [
         "Sessão rolando —", "No ritmo —", "Calma e método —", "Sem FOMO —",
         "Confirmação primeiro —", "Ponto limpo > pressa —", "Na boa —",
@@ -238,6 +235,7 @@ def refresh_all_pools():
     during_close = ["", " Sem pressa.", " É isso.", " Vai no básico.", " Bora na calma.", " Sem inventar.", " Tamo junto.", " Acompanha no grupo.", " Só o simples.", " Vambora."]
     DURING_POOL = build_pool(during_pfx, during_core, during_close, target=90)
 
+    # POST
     post_pfx = [
         "Sessão encerrada —", "Boa —", "Fechamos —", "Fim da janela —",
         "Organiza aí —", "Meta ou não —", "Na paz —", "Sem revenge —",
@@ -260,6 +258,7 @@ def refresh_all_pools():
     post_close = ["", " Simples assim.", " Bora.", " Fechou.", " Sem drama.", " Jogo limpo.", " Partiu próxima.", " É sobre método.", " Tamo junto.", " Até já."]
     POST_POOL = build_pool(post_pfx, post_core, post_close, target=90)
 
+    # GOOD NIGHT (pool único)
     night_pfx = [
         "Boa noite —", "Fechamos o dia —", "Encerramento —", "Fim do turno —",
         "Descansa —", "Amanhã tem sessão —", "Tudo certo —", "Rotina > hype —",
@@ -287,11 +286,7 @@ def refresh_all_pools():
     DURING_M, DURING_T, DURING_N = split_3x30(DURING_POOL)
     POST_M, POST_T, POST_N = split_3x30(POST_POOL)
 
-    log.info(f"Pools atualizados ({LAST_BUILD_DAY})")
-    log.info(f"PRE: {len(PRE_POOL)} | M/T/N: {len(PRE_M)}/{len(PRE_T)}/{len(PRE_N)}")
-    log.info(f"DURING: {len(DURING_POOL)} | M/T/N: {len(DURING_M)}/{len(DURING_T)}/{len(DURING_N)}")
-    log.info(f"POST: {len(POST_POOL)} | M/T/N: {len(POST_M)}/{len(POST_T)}/{len(POST_N)}")
-    log.info(f"GOOD_NIGHT: {len(GOODNIGHT_POOL)}")
+    log.info(f"Pools ({LAST_BUILD_DAY}) | PRE:{len(PRE_POOL)} DUR:{len(DURING_POOL)} POST:{len(POST_POOL)} GN:{len(GOODNIGHT_POOL)}")
 
 refresh_all_pools()
 
@@ -300,12 +295,11 @@ def take_unique(kind_key: str, pool: list[str]) -> str:
     for _ in range(len(pool)):
         m = random.choice(pool)
         if m not in used:
-            used.add(m)
-            return m
+            used.add(m); return m
     used.clear()
     return random.choice(pool)
 
-# ============== COPIES FIXAS ==============
+# -------- COPIES FIXAS --------
 WELCOME_TXT = "Opa, seja bem-vindo 😎 Me fala teu nome e já libero teu bônus!"
 AFTER_NAME_TXT = "Shooow, {nome}! Parabéns por fazer parte do nosso time!\n\nAqui está seu bônus 👇"
 SESSOES_TXT = (
@@ -313,7 +307,7 @@ SESSOES_TXT = (
     "🗓️ Cronograma semanal:\n• Segunda a Sexta: 10:00, 15:00, 20:00"
 )
 
-# ============== HANDLERS ==============
+# ---------------- HANDLERS ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
@@ -323,20 +317,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def got_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return ConversationHandler.END
-
     chat_id = update.effective_chat.id
     nome = update.message.text.strip()
     USERS[chat_id] = nome
     SUBSCRIBERS.add(chat_id)
     save_state()
 
-    # 1) Mensagem de boas-vindas
     await update.message.reply_text(AFTER_NAME_TXT.format(nome=nome))
 
-    # 2) PDF primeiro
+    # PDF primeiro
     await send_bonus_pdf(context, chat_id)
 
-    # 3) Atalhos rápidos (sem "CLIQUE AQUI")
+    # Botões fixos (sem "clique aqui" em texto)
     await context.bot.send_message(
         chat_id=chat_id,
         text="Atalhos rápidos pra começar 👇",
@@ -349,7 +341,7 @@ async def sessoes_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     await q.message.reply_text(SESSOES_TXT)
 
-# ============== BROADCAST ==========
+# ---------------- BROADCAST ----------------
 async def _broadcast(context: ContextTypes.DEFAULT_TYPE, pool: list[str], kind_key: str, tag: str):
     if today_br() != LAST_BUILD_DAY:
         refresh_all_pools()
@@ -362,22 +354,18 @@ async def _broadcast(context: ContextTypes.DEFAULT_TYPE, pool: list[str], kind_k
             msg = maybe_emoji(msg)
             await context.bot.send_message(chat_id=chat_id, text=msg, reply_markup=cta_keyboard())
         except Exception as e:
-            log.warning(f"Falha ao enviar ({tag}) para {chat_id}: {e}")
+            log.warning(f"Falha ao enviar ({tag}) p/ {chat_id}: {e}")
 
-# PRÉ (30 por horário)
+# PRÉ
 async def pre_morning(ctx):   await _broadcast(ctx, PRE_M, "pre_m", "pre_morning")
 async def pre_afternoon(ctx): await _broadcast(ctx, PRE_T, "pre_t", "pre_afternoon")
 async def pre_night(ctx):     await _broadcast(ctx, PRE_N, "pre_n", "pre_night")
 
-# DURANTE (2–3 mensagens por janela)
+# DURANTE (2–3 msgs)
 async def during_burst(ctx, tag):
-    if tag == "morning":
-        pool, key = DURING_M, "during_m"
-    elif tag == "afternoon":
-        pool, key = DURING_T, "during_t"
-    else:
-        pool, key = DURING_N, "during_n"
-
+    if tag == "morning":   pool, key = DURING_M, "during_m"
+    elif tag == "afternoon": pool, key = DURING_T, "during_t"
+    else:                  pool, key = DURING_N, "during_n"
     n = random.randint(2, 3)
     for _ in range(n):
         await _broadcast(ctx, pool, key, f"during_{tag}")
@@ -391,65 +379,60 @@ async def post_night(ctx):     await _broadcast(ctx, POST_N, "post_n", "post_nig
 # BOA NOITE
 async def good_night(ctx):     await _broadcast(ctx, GOODNIGHT_POOL, "goodnight", "good_night")
 
-# ============== COMANDOS DE TESTE (disparam na hora) ==============
+# -------- COMANDOS DE TESTE (dispara na hora) --------
 async def test_pre(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
-        return
+    if update.effective_chat.type != "private": return
     SUBSCRIBERS.add(update.effective_chat.id); save_state()
     await pre_morning(context)
 
 async def test_during(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
-        return
+    if update.effective_chat.type != "private": return
     SUBSCRIBERS.add(update.effective_chat.id); save_state()
     await during_burst(context, "morning")
 
 async def test_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
-        return
+    if update.effective_chat.type != "private": return
     SUBSCRIBERS.add(update.effective_chat.id); save_state()
     await post_morning(context)
 
 async def test_night(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
-        return
+    if update.effective_chat.type != "private": return
     SUBSCRIBERS.add(update.effective_chat.id); save_state()
     await good_night(context)
 
 async def test_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.type != "private":
-        return
+    if update.effective_chat.type != "private": return
     SUBSCRIBERS.add(update.effective_chat.id); save_state()
     await pre_morning(context); await asyncio.sleep(1)
     await during_burst(context, "morning"); await asyncio.sleep(1)
     await post_morning(context); await asyncio.sleep(1)
     await good_night(context)
 
-# ============== SCHEDULE ==============
+# ---------------- SCHEDULE ----------------
 def schedule_daily_jobs(app: Application):
     jq = getattr(app, "job_queue", None)
     if jq is None:
-        raise RuntimeError("JobQueue indisponível. Confirme PTB 21.3 no requirements.")
+        raise RuntimeError("JobQueue indisponível (PTB 21.3 requisitado).")
 
-    # Pré (jitter ±5)
-    jq.run_daily(pre_morning,   time=jitter(br_time(9, 50), 5, 5),   name="pre_morning")
-    jq.run_daily(pre_afternoon, time=jitter(br_time(14, 50), 5, 5),  name="pre_afternoon")
-    jq.run_daily(pre_night,     time=jitter(br_time(19, 50), 5, 5),  name="pre_night")
+    # pré (com jitter gerado no boot)
+    jq.run_daily(pre_morning,   time=jitter_time(9, 50),  name="pre_morning")
+    jq.run_daily(pre_afternoon, time=jitter_time(14, 50), name="pre_afternoon")
+    jq.run_daily(pre_night,     time=jitter_time(19, 50), name="pre_night")
 
-    # Durante (burst por horário)
+    # durante
     jq.run_daily(lambda c: during_burst(c, "morning"),   time=br_time(10, 0), name="during_morning")
     jq.run_daily(lambda c: during_burst(c, "afternoon"), time=br_time(15, 0), name="during_afternoon")
     jq.run_daily(lambda c: during_burst(c, "night"),     time=br_time(20, 0), name="during_night")
 
-    # Pós (jitter ±5)
-    jq.run_daily(post_morning,   time=jitter(br_time(10, 40), 5, 5), name="post_morning")
-    jq.run_daily(post_afternoon, time=jitter(br_time(15, 40), 5, 5), name="post_afternoon")
-    jq.run_daily(post_night,     time=jitter(br_time(21, 0),  5, 5), name="post_night")
+    # pós (jitter no boot)
+    jq.run_daily(post_morning,   time=jitter_time(10, 40), name="post_morning")
+    jq.run_daily(post_afternoon, time=jitter_time(15, 40), name="post_afternoon")
+    jq.run_daily(post_night,     time=jitter_time(21,  0), name="post_night")
 
-    # Boa noite
+    # boa noite
     jq.run_daily(good_night, time=br_time(22, 30), name="good_night")
 
-# ============== MAIN ==============
+# ---------------- MAIN ----------------
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN não encontrado nas variáveis de ambiente.")
