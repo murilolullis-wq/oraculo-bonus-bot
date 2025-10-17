@@ -235,7 +235,7 @@ PRE_T, DUR_T, POS_T = PRE_M, DUR_M, POS_M
 PRE_N, DUR_N, POS_N = PRE_M, DUR_M, POS_M
 
 # ============== BROADCASTS & TESTES ==============
-HORAS = {"m": "08:00", "t": "15:00", "n": "20:00"}
+HORAS = {"m": "10:00", "t": "15:00", "n": "20:00"}
 
 async def _broadcast(context, pool, used_key, hora):
     for chat_id in list(SUBSCRIBERS):
